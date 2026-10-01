@@ -8072,7 +8072,10 @@ function filterCatalogTable(q){
 // ALTA Y EDICIÓN DE PRODUCTOS EN EL CATÁLOGO MAESTRO
 // ----------------------------------------------------
 
+let addProductReturnContext = null;
+
 function openAddProductModal(returnContext = null){
+  addProductReturnContext = returnContext;
   modal(`
     <div class="modal-head">
       <div>
@@ -8082,7 +8085,7 @@ function openAddProductModal(returnContext = null){
         </h3>
         <small style="color:var(--muted)">Registra las especificaciones técnicas y cubicaje de un nuevo modelo de tarima para órdenes, producción y despacho</small>
       </div>
-      <button class="btn secondary" onclick="cancelAddProductModal(${JSON.stringify(returnContext)})">✕</button>
+      <button class="btn secondary" onclick="cancelAddProductModal()">✕</button>
     </div>
     <div class="modal-body" style="padding:16px 20px">
       <div class="notice" style="margin-bottom:14px;background:#f0fdf4;border:1px solid #bbf7d0;color:#166534">
@@ -8159,8 +8162,8 @@ function openAddProductModal(returnContext = null){
       <div id="new_prod_error" style="display:none;margin-top:10px;padding:8px 12px;border-radius:8px;background:#fef2f2;border:1px solid #fecaca;color:#991b1b;font-size:12px;font-weight:600"></div>
     </div>
     <div class="modal-foot" style="padding:12px 20px 16px;gap:8px">
-      <button class="btn secondary" onclick="cancelAddProductModal(${JSON.stringify(returnContext)})">Cancelar</button>
-      <button class="btn primary" style="background:#047857;font-weight:700" onclick="saveProductToCatalog(${JSON.stringify(returnContext)})">✓ Guardar Producto en Catálogo</button>
+      <button class="btn secondary" onclick="cancelAddProductModal()">Cancelar</button>
+      <button class="btn primary" style="background:#047857;font-weight:700" onclick="saveProductToCatalog()">✓ Guardar Producto en Catálogo</button>
     </div>
   `, true);
 
@@ -8205,7 +8208,9 @@ function toggleCustomFamilyInput(val){
   }
 }
 
-function cancelAddProductModal(ctx){
+function cancelAddProductModal(){
+  const ctx = addProductReturnContext;
+  addProductReturnContext = null;
   if(ctx === 'catalog'){
     showCatalogModal('all');
   } else if(ctx && ctx.type === 'newOrder'){
@@ -8217,7 +8222,8 @@ function cancelAddProductModal(ctx){
   }
 }
 
-async function saveProductToCatalog(returnContext){
+async function saveProductToCatalog(){
+  const returnContext = addProductReturnContext;
   const errEl = document.getElementById('new_prod_error');
   const showErr = (msg) => {
     if(errEl){
@@ -8316,6 +8322,7 @@ async function saveProductToCatalog(returnContext){
     if(newOrderDraft.lines[lIdx]){
       newOrderDraft.lines[lIdx].productCode = code;
     }
+    addProductReturnContext = null;
     renderNewOrderModal();
     showKanbanToast(`✓ Modelo ${code} creado y seleccionado en la partida.`);
     return;
@@ -8326,12 +8333,14 @@ async function saveProductToCatalog(returnContext){
     if(editOrderDraft && editOrderDraft.lines[lIdx]){
       editOrderDraft.lines[lIdx].productCode = code;
     }
+    addProductReturnContext = null;
     renderEditOrderModal();
     showKanbanToast(`✓ Modelo ${code} creado y seleccionado en la orden.`);
     return;
   }
 
   // Si el modal original era el catálogo, reabrirlo mostrando todos y notificando
+  addProductReturnContext = null;
   showCatalogModal('all');
   showKanbanToast(`✓ Producto ${code} - ${name} agregado exitosamente al Catálogo Maestro`);
 }
