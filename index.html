@@ -6431,9 +6431,8 @@ function openOrder(id){
         </div>
       </div>
 
-      <div style="margin-top:16px;display:flex;justify-content:space-between;align-items:center">
+      <div style="margin-top:16px">
         <h4 style="margin:0;color:var(--navy)">Asignaciones a Aserraderos</h4>
-        ${unallocated > 0 ? `<button class="btn small primary" style="background:#286f3b;font-size:11px" onclick="assignOrder('${safeId}')">Asignar a Aserradero</button>` : ''}
       </div>
 
       ${unallocated > 0 ? `
@@ -6452,7 +6451,7 @@ function openOrder(id){
             </div>
             <p>${STAGES.map(s => `${STAGE_LABEL[s]}: <b>${(a.stages&&a.stages[s])||0}</b>`).join(' · ')}</p>
           </div>
-        `).join('') : '<div style="font-size:12px;color:var(--muted);padding:8px 0">No hay asignaciones registradas para esta orden. Haz clic en "Asignar a Aserradero" para iniciar.</div>'}
+        `).join('') : '<div style="font-size:12px;color:var(--muted);padding:8px 0">No hay asignaciones registradas para esta orden. Usa "Asignar ahora" para distribuir las piezas entre Cosme y Duma.</div>'}
       </div>
 
       <h4 style="margin:16px 0 8px;color:var(--navy)">Historial de Trazabilidad</h4>
@@ -6475,7 +6474,6 @@ function openOrder(id){
       ${can('orders.link_receipt') && (o.lines||[]).some(l=>qtyLinkableReceivingLine(o.id,l.id)>0)?`<button class="btn small soft" style="color:#7c3aed;border-color:#c4b5fd" onclick="openLinkReceivingOrder('${safeId}')" title="Registrar el número de OC con el que planta recibirá esta partida, sin crear otra orden operativa">Vincular OC de recepción</button>`:''}
       <button class="btn small soft" onclick="editOrderNumber('${safeId}')">Editar No. OC</button>
       <button class="btn small soft" onclick="expandOrder('${safeId}')">Ampliar OC</button>
-      ${unallocated > 0 && !o.isDeleted && !o.isArchived ? `<button class="btn small primary" style="background:#286f3b" onclick="assignOrder('${safeId}')">Asignar a Aserradero</button>` : ''}
       ${o.status==='Cerrada' ? `<button class="btn small warn" onclick="reopenOrder('${safeId}')">Reabrir OC</button>` : ''}
       ${(o.isDeleted || o.status === 'Eliminada') ? `
         <button class="btn small primary" style="background:var(--green)" onclick="restoreOrder('${safeId}')">Restaurar Orden</button>
