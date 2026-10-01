@@ -35,7 +35,7 @@ La visibilidad puede seguir siendo amplia; la restricción principal debe aplica
 | `ian` | Ian | Administración & Compras |
 | `emanuelle` | Emanuelle | Control de Producción |
 | `cris` | Cris | Logística & Embarques |
-| `aless` | Aless | Calidad & SGC |
+| `aless` | Aless | Supervisión Operativa & Calidad |
 | `esme` | Esme | Supervisión de Calidad & Lotes |
 
 ### Pendiente de alta
@@ -111,8 +111,8 @@ permission = quality.release
 
 Autoridades previstas:
 
-- Aless / Alessandri.
-- Gustavo, una vez creado como usuario real.
+- Emanuelle (Gustavo).
+- Aless (Alessandri).
 
 Sandra, Ian, Cris, Emanuelle y Esme podrán consultar la liberación, pero no emitirla salvo decisión posterior expresa.
 
@@ -181,8 +181,8 @@ Actualización de etapas, asignaciones operativas y stock de producción; sin au
 ### Logística & Embarques
 Programación y confirmación de entregas, simulación/carga y consulta de lotes liberados.
 
-### Calidad & SGC
-Inspección, retrabajo, reinspección, NC y, cuando la identidad corresponda a autoridad aprobada, liberación.
+### Supervisión Operativa & Calidad
+Rol compartido por Emanuelle y Aless. Incluye seguimiento de producción, inspección, retrabajo, reinspección, gestión de NC y liberación formal de lote.
 
 ### Supervisión de Calidad & Lotes
 Inspección y seguimiento de lotes/NC; sin liberación formal por defecto.
@@ -237,11 +237,12 @@ Registrar las acciones críticas en `audit_events`.
 
 ## 10. Puntos pendientes de confirmación
 
-1. Confirmar si `Aless` en la interfaz corresponde a Alessandri.
-2. Dar de alta a Gustavo como usuario autenticable para `quality.release`.
-3. Confirmar si Emanuelle permanecerá como responsable de Control de Producción.
-4. Confirmar si Esme conservará el rol visual actual de Supervisión de Calidad & Lotes.
-5. Determinar si Miguel requiere cuenta propia o permanece fuera del sistema como operador de transporte.
-6. Validar si Ian conserva las atribuciones administrativas propuestas o requiere también permisos de inspección más amplios.
+1. **RESUELTO:** `Aless` corresponde a Alessandri.
+2. **RESUELTO:** `Emanuelle` corresponde a Gustavo y conservará ese nombre visible en la app.
+3. **RESUELTO:** Emanuelle y Aless compartirán el rol **Supervisión Operativa & Calidad** y ambos tendrán `quality.release`.
+4. **RESUELTO:** Miguel permanece fuera del sistema como chofer, sin usuario propio.
+5. **RESUELTO:** Ian tendrá acceso total técnico/administrativo como **IT & Soporte Multifuncional**, sin sustituir la autoridad formal de liberación de Emanuelle/Aless.
+6. Pendiente afinar el alcance definitivo de Esme como perfil multifuncional.
+7. Pendiente cerrar el detalle final de permisos de Cris dentro de Inspecciones & Entregas.
 
 Hasta cerrar estos puntos, esta matriz se considera **BORRADOR CONTROLADO** y no debe utilizarse todavía para bloquear funciones irreversiblemente.
