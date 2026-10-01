@@ -3019,7 +3019,7 @@ function renderSingleAtpPillarsAndOrders(d, barColor){
             <b style="color:#c2410c;font-size:12px">${d.stages.estufando||0}</b>
           </div>
           <div style="background:#fff;border-radius:7px;padding:4px 2px;border:1px solid #bbf7d0" title="5. Por limpiar: ${d.stages.por_limpiar||0} pzas">
-            <span style="color:#166534;display:block;font-size:8.5px;font-weight:700">5. Limpios</span>
+            <span style="color:#166534;display:block;font-size:8.5px;font-weight:700">5. Por limpiar</span>
             <b style="color:var(--green);font-size:12px">${d.stages.por_limpiar||0}</b>
           </div>
           <div style="background:#fff;border-radius:7px;padding:4px 2px;border:1px solid #86efac" title="6. Stock listo para entrega: ${d.stages.stock_entrega||d.finishedStock||0} pzas">
@@ -3584,7 +3584,7 @@ function saveAssignStockToOrder(productCode){
     state.allocations.push(a);
   }
 
-  if(stage === 'stock_entrega' || stage === 'limpios' || stage === 'por_limpiar'){
+  if(stage === 'stock_entrega' || stage === 'por_limpiar'){
     if(!state.lots) state.lots = [];
     state.lots.unshift({
       id: generateLotIdForOrder(orderId, sawmill),
@@ -6236,7 +6236,7 @@ function saveOrderAssignment(orderId){
   showKanbanToast(`✓ ${totalAssignedInModal} piezas asignadas a aserraderos`);
 }
 function expandOrder(id){const o=orderById(id),line=o.lines[0];modal(`<div class="modal-head"><h3>Ampliar OC ${id}</h3><button class="btn secondary" onclick="closeModal()">Cerrar</button></div><div class="modal-body"><div class="notice">La ampliación conserva el valor original en el historial y agrega unidades nuevas a producción.</div><div class="form-grid">${field('ex_add','Cantidad adicional','','number')}${field('ex_cos','Asignar adicional a Cosme','0','number')}${field('ex_dum','Asignar adicional a Duma','0','number')}</div><div class="field" style="margin-top:10px"><label>Motivo</label><textarea id="ex_reason" placeholder="Motivo de la ampliación"></textarea></div></div><div class="modal-foot"><button class="btn primary" onclick="saveExpand('${id}')">Guardar ampliación</button></div>`,true)}
-function saveExpand(id){const add=+val('ex_add'),cos=+val('ex_cos'),dum=+val('ex_dum'),reason=val('ex_reason')||'Sin motivo especificado';if(!add||add<=0||cos+dum!==add)return alert('La cantidad adicional debe coincidir con Cosme + Duma.');const o=orderById(id),line=o.lines[0],before=line.qty;line.qty+=add;o.status='Activa';o.history.unshift(h('Ampliación de OC',`Cantidad ${before} → ${line.qty}. Motivo: ${reason}`));[['Cosme',cos],['Duma',dum]].forEach(([sw,q])=>{if(!q)return;let a=state.allocations.find(x=>x.orderId===id&&x.lineId===line.id&&x.sawmill===sw);if(a){a.qty+=q;a.stages.corte+=q;a.history.unshift(h('Ampliación de asignación',`+${q} piezas agregadas en corte.`))}else{state.allocations.push({id:uid('ASG'),orderId:id,lineId:line.id,productCode:line.productCode,sawmill:sw,qty:q,stages:{corte:q,armado:0,estufado:0,limpios:0},history:[h('Asignación',`${q} piezas a ${sw}.`)]})}});save();render();closeModal();openOrder(id)}
+function saveExpand(id){const add=+val('ex_add'),cos=+val('ex_cos'),dum=+val('ex_dum'),reason=val('ex_reason')||'Sin motivo especificado';if(!add||add<=0||cos+dum!==add)return alert('La cantidad adicional debe coincidir con Cosme + Duma.');const o=orderById(id),line=o.lines[0],before=line.qty;line.qty+=add;o.status='Activa';o.history.unshift(h('Ampliación de OC',`Cantidad ${before} → ${line.qty}. Motivo: ${reason}`));[['Cosme',cos],['Duma',dum]].forEach(([sw,q])=>{if(!q)return;let a=state.allocations.find(x=>x.orderId===id&&x.lineId===line.id&&x.sawmill===sw);if(a){a.qty+=q;a.stages.corte+=q;a.history.unshift(h('Ampliación de asignación',`+${q} piezas agregadas en corte.`))}else{state.allocations.push({id:uid('ASG'),orderId:id,lineId:line.id,productCode:line.productCode,sawmill:sw,qty:q,stages:{corte:q,armado:0,por_estufa:0,estufando:0,por_limpiar:0,stock_entrega:0},history:[h('Asignación',`${q} piezas a ${sw}.`)]})}});save();render();closeModal();openOrder(id)}
 function reopenOrder(id){const o=orderById(id);modal(`<div class="modal-head"><h3>Reabrir ${id}</h3><button class="btn secondary" onclick="closeModal()">Cerrar</button></div><div class="modal-body"><div class="field"><label>Motivo de reapertura</label><textarea id="ro_reason"></textarea></div></div><div class="modal-foot"><button class="btn warn" onclick="saveReopen('${id}')">Confirmar reapertura</button></div>`,true)}
 function saveReopen(id){const o=orderById(id),r=val('ro_reason')||'Sin motivo especificado';o.status='Activa';o.history.unshift(h('Reapertura de OC',`Estado Cerrada → Activa. Motivo: ${r}`));save();render();closeModal();openOrder(id)}
 
@@ -6340,7 +6340,7 @@ function promptDeleteOrder(id){
         <b>Mecanismo Oficial de Auditoría (Soft-Delete SGC):</b> La orden se moverá a la <b>Papelera / Eliminadas</b>. No se borra de forma destructiva para preservar la trazabilidad histórica de folios y auditorías de calidad.
       </div>
       <div style="background:#fef3c7;border:1px solid #fcd34d;border-radius:10px;padding:11px 13px;margin-bottom:12px;font-size:12px;color:#92400e;line-height:1.4">
-        <b>Impacto Operativo Inmediato:</b> Se retirarán automáticamente todos sus rastros de la <b>Pantalla Principal</b> (KPIs de demanda, WIP y radar de vencimientos) y de todas las <b>Etapas de Producción</b> (${wipPcs} piezas en tarjetas Kanban de Corte, Armado, Estufa y Limpios) para que los aserraderos (Cosme y Duma) no procesen madera innecesaria.
+        <b>Impacto Operativo Inmediato:</b> Se retirarán automáticamente todos sus rastros de la <b>Pantalla Principal</b> (KPIs de demanda, WIP y radar de vencimientos) y de todas las <b>Etapas de Producción</b> (${wipPcs} piezas distribuidas en las 6 etapas del KanBan de Producción) para que los aserraderos (Cosme y Duma) no procesen madera innecesaria.
       </div>
       <div style="background:var(--soft);border:1px solid var(--line);border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:12px;display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
         <div><small style="color:var(--muted);display:block">No. OC</small><b>${esc(o.id)}</b></div>
@@ -6394,8 +6394,26 @@ function restoreOrder(id){
   showKanbanToast(`Orden ${o.id} restaurada exitosamente`);
 }
 
-function moveProduction(aid){const a=state.allocations.find(x=>x.id===aid);const sources=STAGES.slice(0,-1).filter(s=>(a.stages[s]||0)>0);if(!sources.length)return alert('Esta asignación ya está completamente en Limpios.');modal(`<div class="modal-head"><h3>Actualizar avance · ${a.sawmill}</h3><button class="btn secondary" onclick="closeModal()">Cerrar</button></div><div class="modal-body"><div class="notice">Una pieza sólo puede estar en una etapa a la vez. El movimiento descuenta origen y suma destino.</div><div class="form-grid"><div class="field"><label>Etapa origen</label><select id="mv_from">${sources.map(s=>`<option value="${s}">${STAGE_LABEL[s]} · disponibles ${a.stages[s]}</option>`).join('')}</select></div>${field('mv_qty','Cantidad a avanzar','','number')}</div><div class="field" style="margin-top:10px"><label>Observación</label><textarea id="mv_note" placeholder="Opcional"></textarea></div></div><div class="modal-foot"><button class="btn primary" onclick="saveMove('${aid}')">Registrar avance</button></div>`,true)}
-function saveMove(aid){const a=state.allocations.find(x=>x.id===aid),from=val('mv_from'),qty=+val('mv_qty'),note=val('mv_note');const idx=STAGES.indexOf(from),to=STAGES[idx+1];if(!to||!qty||qty<=0||qty>a.stages[from])return alert('Cantidad inválida para la etapa origen.');a.stages[from]-=qty;a.stages[to]+=qty;a.history.unshift(h('Avance de producción',`${qty} piezas: ${STAGE_LABEL[from]} → ${STAGE_LABEL[to]}.${note?' '+note:''}`));if(to==='limpios'){state.lots.push({id:generateLotIdForOrder(a.orderId,a.sawmill),allocationId:a.id,orderId:a.orderId,lineId:a.lineId,productCode:a.productCode,sawmill:a.sawmill,qty,stage:'limpios',quality:'Pendiente de inspección',created:today(),history:[h('Creación de lote',`${qty} piezas ingresan a Limpios.`)]})}save();render();closeModal();go('production')}
+function moveProduction(aid){
+  const a=state.allocations.find(x=>x.id===aid);
+  if(!a) return;
+  const sources=STAGES.slice(0,-1).filter(s=>(a.stages?.[s]||0)>0);
+  if(!sources.length) return alert('Esta asignación ya está completamente en En stock para entrega.');
+  modal(`<div class="modal-head"><h3>Actualizar avance · ${a.sawmill}</h3><button class="btn secondary" onclick="closeModal()">Cerrar</button></div><div class="modal-body"><div class="notice">Una pieza sólo puede estar en una etapa a la vez. El movimiento descuenta origen y suma destino siguiendo las 6 etapas oficiales del KanBan.</div><div class="form-grid"><div class="field"><label>Etapa origen</label><select id="mv_from">${sources.map(s=>`<option value="${s}">${STAGE_LABEL[s]} · disponibles ${a.stages[s]}</option>`).join('')}</select></div>${field('mv_qty','Cantidad a avanzar','','number')}</div><div class="field" style="margin-top:10px"><label>Observación</label><textarea id="mv_note" placeholder="Opcional"></textarea></div></div><div class="modal-foot"><button class="btn primary" onclick="saveMove('${aid}')">Registrar avance</button></div>`,true);
+}
+function saveMove(aid){
+  const a=state.allocations.find(x=>x.id===aid);
+  if(!a) return;
+  const from=val('mv_from');
+  const qty=+val('mv_qty');
+  const note=val('mv_note');
+  const idx=STAGES.indexOf(from);
+  const to=STAGES[idx+1];
+  if(!to||!qty||qty<=0||qty>(a.stages?.[from]||0)) return alert('Cantidad inválida para la etapa origen.');
+  transferKanbanStage(aid,from,to,qty,note);
+  closeModal();
+  go('production');
+}
 
 function openLot(id){const l=lotById(id);modal(`<div class="modal-head"><h3>Lote ${l.id}</h3><button class="btn secondary" onclick="closeModal()">Cerrar</button></div><div class="modal-body"><div class="detail-grid"><div class="detail"><small>Producto</small><b>${product(l.productCode).code} · ${product(l.productCode).name}</b></div><div class="detail"><small>Aserradero</small><b>${l.sawmill}</b></div><div class="detail"><small>Cantidad</small><b>${l.qty}</b></div><div class="detail"><small>Etapa</small><b>${STAGE_LABEL[l.stage]||l.stage}</b></div><div class="detail"><small>Calidad</small><b>${l.quality}</b></div><div class="detail"><small>OC</small><b>${l.orderId}</b></div></div><div class="history">${(l.history||[]).map(x=>`<div class="history-item"><b>${x.action}</b><small>${x.date} · ${x.user}</small><p>${x.detail}</p></div>`).join('')}</div></div>`)}
 
