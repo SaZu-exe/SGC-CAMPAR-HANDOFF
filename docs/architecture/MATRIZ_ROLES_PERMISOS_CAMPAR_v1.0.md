@@ -74,6 +74,7 @@ El flujo de liberación actual menciona a **Gustavo** como autoridad formal junt
 | Habilitar reinspección | — | O | O | O | O | O |
 | Cerrar NC/incidente | — | O | O | — | O | O |
 | **Liberar lote** | — | — | **A** | — | **A** | — |
+| Vincular OC de recepción a OC original | — | O | — | — | — | O |
 | Consultar Entregas/Calendario | V | V | V | V | V | V |
 | Programar entrega | — | O | — | O | — | O |
 | Confirmar recepción/entrega | — | O | — | O | — | O |
@@ -277,3 +278,20 @@ La capa de permisos ya fue incorporada en el frontend actual mediante:
 La liberación ya no permite seleccionar manualmente la autoridad: se deriva del perfil activo. Sólo Emanuelle y Aless pueden ejecutar `quality.release`.
 
 **Importante:** esta capa mejora el prototipo, pero todavía no constituye seguridad real. Los mismos permisos deberán implementarse nuevamente en Supabase Auth/RLS/RPC para que no puedan eludirse desde el navegador.
+
+
+---
+
+## 13. Registro de OC de recepción vinculada
+
+La reclasificación de una OC solicitada por planta se registra **exclusivamente desde el expediente de Órdenes de Compra**, no desde Entregas.
+
+Flujo operativo:
+
+- Cris reporta desde planta el cambio de OC.
+- Ian o Esme reciben la información y realizan el registro administrativo en el sistema.
+- La remisión/entrega se usa como evidencia relacionada, pero el módulo de Entregas no modifica el vínculo comercial.
+- El sistema conserva la OC original como origen de producción y vincula la nueva OC como OC de recepción.
+- La función `orders.link_receipt` está autorizada únicamente para Ian y Esme.
+
+Esto evita que el personal de entrega modifique directamente la estructura comercial de una OC mientras mantiene la trazabilidad de lo reportado en planta.
