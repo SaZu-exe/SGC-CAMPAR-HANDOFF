@@ -49,22 +49,100 @@ button,input,select,textarea{font:inherit}
 button{cursor:pointer}
 
 /* EXECUTIVE WELCOME PORTAL STYLES */
-.welcome-portal{position:fixed;inset:0;z-index:99999;display:flex;background:#faf8f5;overflow:hidden;font-family:'Plus Jakarta Sans',sans-serif}
-.welcome-left{flex:1.15;max-width:660px;padding:clamp(36px,6vw,80px);display:flex;flex-direction:column;justify-content:center;position:relative;z-index:2;background:#faf8f5}
-.welcome-brand-badge{display:flex;align-items:center;gap:14px;margin-bottom:32px}
-.welcome-brand-logo{width:56px;height:62px;object-fit:contain}
-.welcome-badge-text span{display:block;font-size:12px;font-weight:800;color:var(--brand);letter-spacing:3px;text-transform:uppercase}
-.welcome-hero-title{font-family:'Playfair Display',Georgia,serif;font-size:clamp(40px,4.8vw,60px);font-weight:700;color:#0f172a;line-height:1.15;margin:0 0 32px;letter-spacing:-0.5px}
-.welcome-hero-brand{color:var(--brand);letter-spacing:0.5px}
-.welcome-enter-btn{display:inline-flex;align-items:center;gap:12px;background:var(--brand);color:#fff;border:0;border-radius:10px;padding:16px 38px;font-size:15px;font-weight:700;letter-spacing:0.3px;cursor:pointer;box-shadow:0 6px 20px rgba(120,53,15,.22);transition:all .2s cubic-bezier(.16,1,.3,1);align-self:flex-start}
-.welcome-enter-btn:hover{background:var(--brand-dark);transform:translateY(-2px);box-shadow:0 10px 26px rgba(120,53,15,.3)}
+.welcome-portal{
+  position:fixed;
+  inset:0;
+  z-index:99999;
+  display:grid;
+  grid-template-columns:minmax(420px,0.95fr) minmax(420px,1.05fr);
+  background:#faf8f5;
+  overflow:hidden;
+  font-family:'Plus Jakarta Sans',sans-serif;
+}
+.welcome-left{
+  padding:clamp(42px,7vw,96px);
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  align-items:flex-start;
+  position:relative;
+  z-index:2;
+  background:#faf8f5;
+}
+.welcome-brand-badge{
+  display:flex;
+  align-items:center;
+  margin-bottom:34px;
+}
+.welcome-brand-logo{
+  width:86px;
+  height:96px;
+  object-fit:contain;
+}
+.welcome-hero-title{
+  font-family:'Playfair Display',Georgia,serif;
+  font-size:clamp(46px,5.2vw,72px);
+  font-weight:700;
+  color:#0f172a;
+  line-height:1.08;
+  margin:0 0 38px;
+  letter-spacing:-1px;
+}
+.welcome-hero-brand{
+  color:var(--brand);
+  letter-spacing:0;
+}
+.welcome-enter-btn{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-width:220px;
+  gap:12px;
+  background:var(--brand);
+  color:#fff;
+  border:0;
+  border-radius:10px;
+  padding:16px 34px;
+  font-size:15px;
+  font-weight:800;
+  letter-spacing:.2px;
+  cursor:pointer;
+  box-shadow:0 8px 22px rgba(120,53,15,.18);
+  transition:background .18s ease, transform .18s ease, box-shadow .18s ease;
+}
+.welcome-enter-btn:hover{
+  background:var(--brand-dark);
+  transform:translateY(-1px);
+  box-shadow:0 12px 28px rgba(120,53,15,.24);
+}
 .welcome-enter-btn:active{transform:translateY(0)}
-.welcome-right{flex:1;position:relative;overflow:hidden;min-height:100%;background:linear-gradient(135deg,#122318 0%,#1c3625 50%,#332115 100%)}
-.welcome-right svg{width:100%;height:100%;object-fit:cover;display:block}
+.welcome-right{
+  position:relative;
+  min-height:100%;
+  overflow:hidden;
+  background:
+    radial-gradient(circle at 78% 18%,rgba(255,255,255,.16),transparent 30%),
+    radial-gradient(circle at 22% 82%,rgba(27,67,47,.22),transparent 34%),
+    linear-gradient(145deg,#d8c2a5 0%,#ba936d 38%,#77513b 68%,#294635 100%);
+}
+.welcome-right::after{
+  content:'';
+  position:absolute;
+  inset:0;
+  background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(15,23,42,.08));
+  pointer-events:none;
+}
 @media(max-width:900px){
-  .welcome-portal{flex-direction:column;overflow-y:auto}
-  .welcome-left{max-width:100%;padding:32px 24px}
-  .welcome-right{min-height:240px}
+  .welcome-portal{
+    grid-template-columns:1fr;
+    grid-template-rows:auto minmax(220px,34vh);
+    overflow-y:auto;
+  }
+  .welcome-left{padding:42px 26px 36px}
+  .welcome-brand-logo{width:70px;height:78px}
+  .welcome-hero-title{font-size:clamp(40px,12vw,58px);margin-bottom:30px}
+  .welcome-enter-btn{width:100%;max-width:320px}
+  .welcome-right{min-height:220px}
 }
 
 /* EXECUTIVE USER SELECTION CARD (INSIDE OVERLAY) */
@@ -8525,146 +8603,22 @@ function renderWelcomePortal(){
       <div class="welcome-left">
         <div class="welcome-brand-badge">
           <img src="assets/logo-campar.png" class="welcome-brand-logo" alt="CAMPAR" onerror="this.src='logo-campar.png'">
-          <div class="welcome-badge-text">
-            <span>SGC DIGITAL</span>
-          </div>
         </div>
 
         <h1 class="welcome-hero-title">
           Bienvenido a<br><span class="welcome-hero-brand">CAMPAR</span>
         </h1>
 
-        <div>
-          <button class="welcome-enter-btn" onclick="openProfilePicker(false)">
-            <span>Ingresar al Sistema</span>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
-          </button>
-        </div>
+        <button class="welcome-enter-btn" onclick="openProfilePicker(false)">
+          <span>Ingresar</span>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+            <polyline points="12 5 19 12 12 19"></polyline>
+          </svg>
+        </button>
       </div>
 
-      <div class="welcome-right">
-        <svg viewBox="0 0 600 800" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <defs>
-            <linearGradient id="bgGrad" x1="0" y1="0" x2="600" y2="800" gradientUnits="userSpaceOnUse">
-              <stop offset="0%" stop-color="#112418" />
-              <stop offset="45%" stop-color="#1b3926" />
-              <stop offset="100%" stop-color="#382415" />
-            </linearGradient>
-            <linearGradient id="woodLight" x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0%" stop-color="#d4a373" />
-              <stop offset="50%" stop-color="#bc804c" />
-              <stop offset="100%" stop-color="#9a6234" />
-            </linearGradient>
-            <linearGradient id="woodMid" x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0%" stop-color="#bc804c" />
-              <stop offset="100%" stop-color="#7a4620" />
-            </linearGradient>
-            <linearGradient id="woodDark" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stop-color="#6e3d1c" />
-              <stop offset="100%" stop-color="#4d2710" />
-            </linearGradient>
-            <linearGradient id="accentGlow" x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0%" stop-color="#22c55e" stop-opacity="0.25" />
-              <stop offset="100%" stop-color="#22c55e" stop-opacity="0" />
-            </linearGradient>
-          </defs>
-          <rect width="600" height="800" fill="url(#bgGrad)" />
-          
-          <!-- Isometric Grid Technical Lines -->
-          <g stroke="#ffffff" stroke-opacity="0.06" stroke-width="1.2">
-            <line x1="0" y1="150" x2="600" y2="500" />
-            <line x1="0" y1="280" x2="600" y2="630" />
-            <line x1="0" y1="410" x2="600" y2="760" />
-            <line x1="600" y1="150" x2="0" y2="500" />
-            <line x1="600" y1="280" x2="0" y2="630" />
-            <line x1="600" y1="410" x2="0" y2="760" />
-          </g>
-
-          <!-- Ambient Green Technical Glow -->
-          <circle cx="340" cy="420" r="260" fill="url(#accentGlow)" />
-
-          <!-- Stack of Architectural Industrial Pallets -->
-          <g transform="translate(60, 140)">
-            <!-- Lower Pallet Base Level -->
-            <!-- Stringer Boards Base -->
-            <polygon points="120,440 360,300 460,360 220,500" fill="url(#woodDark)" />
-            <polygon points="120,440 220,500 220,522 120,462" fill="#3a1e0b" />
-            <polygon points="220,500 460,360 460,382 220,522" fill="#5c3216" />
-
-            <!-- Blocks (Tacos de madera) -->
-            <g transform="translate(0, -25)">
-              <polygon points="135,430 185,400 205,412 155,442" fill="url(#woodMid)" />
-              <polygon points="135,430 155,442 155,465 135,453" fill="#3a1e0b" />
-              <polygon points="155,442 205,412 205,435 155,465" fill="#5c3216" />
-
-              <polygon points="235,372 285,342 305,354 255,384" fill="url(#woodMid)" />
-              <polygon points="235,372 255,384 255,407 235,395" fill="#3a1e0b" />
-              <polygon points="255,384 305,354 305,377 255,407" fill="#5c3216" />
-
-              <polygon points="335,315 385,285 405,297 355,327" fill="url(#woodMid)" />
-              <polygon points="335,315 355,327 355,350 335,338" fill="#3a1e0b" />
-              <polygon points="355,327 405,297 405,320 355,350" fill="#5c3216" />
-            </g>
-
-            <!-- Upper Deck Planks (Duelas Superiores) -->
-            <g transform="translate(0, -55)">
-              <!-- Plank 1 -->
-              <polygon points="110,400 350,260 375,274 135,414" fill="url(#woodLight)" />
-              <polygon points="110,400 135,414 135,426 110,412" fill="#5c3216" />
-              <polygon points="135,414 375,274 375,286 135,426" fill="#8a4f23" />
-              
-              <!-- Plank 2 -->
-              <polygon points="145,420 385,280 405,292 165,432" fill="url(#woodLight)" />
-              <polygon points="145,420 165,432 165,444 145,432" fill="#5c3216" />
-              <polygon points="165,432 405,292 405,304 165,444" fill="#8a4f23" />
-
-              <!-- Plank 3 -->
-              <polygon points="175,437 415,297 435,309 195,449" fill="url(#woodLight)" />
-              <polygon points="175,437 195,449 195,461 175,449" fill="#5c3216" />
-              <polygon points="195,449 435,309 435,321 195,461" fill="#8a4f23" />
-
-              <!-- Plank 4 -->
-              <polygon points="205,454 445,314 470,328 230,468" fill="url(#woodLight)" />
-              <polygon points="205,454 230,468 230,480 205,466" fill="#5c3216" />
-              <polygon points="230,468 470,328 470,340 230,480" fill="#8a4f23" />
-
-              <!-- Heat Treatment Stamp Mark on Side -->
-              <rect x="245" y="445" width="46" height="18" rx="3" transform="skewY(-30)" fill="#1b3926" stroke="#4ade80" stroke-width="1.2" />
-              <text x="248" y="458" transform="skewY(-30)" font-family="monospace" font-size="8.5" font-weight="bold" fill="#4ade80">MX-1361 HT</text>
-            </g>
-
-            <!-- Second Pallet Stacked Above -->
-            <g transform="translate(0, -115)">
-              <polygon points="120,440 360,300 460,360 220,500" fill="url(#woodDark)" opacity="0.9" />
-              <polygon points="120,440 220,500 220,518 120,458" fill="#3a1e0b" />
-              <polygon points="220,500 460,360 460,378 220,518" fill="#5c3216" />
-
-              <!-- Top Deck Planks Top Pallet -->
-              <g transform="translate(0, -45)">
-                <polygon points="110,400 350,260 375,274 135,414" fill="url(#woodLight)" />
-                <polygon points="110,400 135,414 135,426 110,412" fill="#5c3216" />
-                <polygon points="135,414 375,274 375,286 135,426" fill="#8a4f23" />
-
-                <polygon points="145,420 385,280 405,292 165,432" fill="url(#woodLight)" />
-                <polygon points="145,420 165,432 165,444 145,432" fill="#5c3216" />
-                <polygon points="165,432 405,292 405,304 165,444" fill="#8a4f23" />
-
-                <polygon points="175,437 415,297 435,309 195,449" fill="url(#woodLight)" />
-                <polygon points="175,437 195,449 195,461 175,449" fill="#5c3216" />
-                <polygon points="195,449 435,309 435,321 195,461" fill="#8a4f23" />
-
-                <polygon points="205,454 445,314 470,328 230,468" fill="url(#woodLight)" />
-                <polygon points="205,454 230,468 230,480 205,466" fill="#5c3216" />
-                <polygon points="230,468 470,328 470,340 230,480" fill="#8a4f23" />
-
-                <!-- HT Stamp Duma -->
-                <rect x="250" y="442" width="46" height="18" rx="3" transform="skewY(-30)" fill="#1b3926" stroke="#4ade80" stroke-width="1.2" />
-                <text x="253" y="455" transform="skewY(-30)" font-family="monospace" font-size="8.5" font-weight="bold" fill="#4ade80">MX-1071 HT</text>
-              </g>
-            </g>
-          </g>
-        </svg>
-      </div>
+      <div class="welcome-right" aria-hidden="true"></div>
     </div>
   `;
 }
