@@ -1142,7 +1142,7 @@ const USERS = [
 
 const ROLE_PERMISSIONS = {
   director: new Set([
-    'orders.read','orders.create','orders.update','orders.expand','orders.reopen','orders.archive','orders.soft_delete','orders.assign','orders.link_receipt',
+    'orders.read','orders.create','orders.update','orders.expand','orders.reopen','orders.archive','orders.soft_delete','orders.assign',
     'production.read',
     'inventory.read','inventory.manual_stock','inventory.assign_stock',
     'catalog.create','catalog.update','catalog.set_active',
@@ -1170,7 +1170,7 @@ const ROLE_PERMISSIONS = {
     'loadplan.use','reports.export'
   ]),
   inspections_deliveries: new Set([
-    'orders.read','orders.link_receipt','production.read','inventory.read',
+    'orders.read','production.read','inventory.read',
     'quality.read','quality.inspect','quality.edit_inspection','quality.request_rework','quality.reinspect',
     'deliveries.read','deliveries.schedule','deliveries.confirm',
     'loadplan.use','reports.export'
@@ -6288,7 +6288,7 @@ function openOrder(id){
       <button class="btn small" style="background:#fef3c7;color:#92400e;border:1px solid #fcd34d;font-weight:800;display:inline-flex;align-items:center;gap:4px" onclick="exportOrderPdf('${safeId}')" title="Exportar expediente oficial de la OC a PDF">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg> Exportar PDF
       </button>
-      ${(o.lines||[]).some(l=>qtyPhysicalDeliveredLine(o.id,l.id)-qtyReclassifiedOutLine(o.id,l.id)>0)?`<button class="btn small soft" style="color:#7c3aed;border-color:#c4b5fd" onclick="openLinkReceivingOrder('${safeId}')">Vincular OC de recepción</button>`:''}
+      ${can('orders.link_receipt') && (o.lines||[]).some(l=>qtyPhysicalDeliveredLine(o.id,l.id)-qtyReclassifiedOutLine(o.id,l.id)>0)?`<button class="btn small soft" style="color:#7c3aed;border-color:#c4b5fd" onclick="openLinkReceivingOrder('${safeId}')">Vincular OC de recepción</button>`:''}
       <button class="btn small soft" onclick="editOrderNumber('${safeId}')">Editar No. OC</button>
       <button class="btn small soft" onclick="expandOrder('${safeId}')">Ampliar OC</button>
       ${unallocated > 0 && !o.isDeleted && !o.isArchived ? `<button class="btn small primary" style="background:#286f3b" onclick="assignOrder('${safeId}')">Asignar a Aserradero</button>` : ''}
