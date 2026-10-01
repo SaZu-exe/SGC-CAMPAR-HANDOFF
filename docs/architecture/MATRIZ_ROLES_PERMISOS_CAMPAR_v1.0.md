@@ -55,7 +55,7 @@ El flujo de liberación actual menciona a **Gustavo** como autoridad formal junt
 | Ampliar OC | A/O | O | — | — | — | O |
 | Reabrir OC | A/O | O | — | — | — | O |
 | Archivar / restaurar OC | A/O | O | — | — | — | O |
-| Eliminar lógicamente OC | A | O | — | — | — | — |
+| Eliminar lógicamente OC | A | O | — | — | — | O |
 | Asignar OC a Cosme/Duma | O | O | O | — | O | O |
 | Consultar Producción/KanBan | V | V | V | V | V | V |
 | Mover piezas entre etapas | — | O | O | — | O | O |
@@ -181,7 +181,7 @@ Ian tiene acceso técnico/administrativo total al sistema para soporte, configur
 Rol compartido por Emanuelle (Gustavo) y Aless (Alessandri). Incluye asignaciones, producción, actualización de stock, inspección, retrabajo, reinspección, cierre de NC y liberación formal de lote.
 
 ### Coordinación Operativa Multifuncional
-Esme participa de forma transversal en OCs, producción, inventario, catálogo, inspecciones, NC y logística, sin permiso de liberación formal ni administración de usuarios.
+Esme participa de forma transversal en OCs, producción, inventario, catálogo, inspecciones, NC y logística. Puede archivar, restaurar y eliminar lógicamente OCs para mantener el control operativo, pero no tiene permiso de liberación formal ni administración de usuarios.
 
 ### Inspecciones & Entregas
 Cris queda limitado a inspecciones, evidencia/retrabajo/reinspección y logística de entregas. No modifica OCs, producción, inventario ni libera lotes.
