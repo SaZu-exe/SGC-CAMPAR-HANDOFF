@@ -1132,13 +1132,66 @@ const SAWMILLS={Cosme:'MX-1361',Duma:'MX-1071'};
 
 // SISTEMA DE USUARIOS CON AUTENTICACIÓN POR PIN
 const USERS = [
-  { id: 'aless', name: 'Aless', role: 'Calidad & SGC', dept: 'Aseguramiento de Calidad', pin: '1111', avatar: 'AL', color: '#8c5a1e' },
-  { id: 'emanuelle', name: 'Emanuelle', role: 'Control de Producción', dept: 'Operaciones Aserraderos', pin: '2222', avatar: 'EM', color: '#1d4ed8' },
-  { id: 'ian', name: 'Ian', role: 'Administración & Compras', dept: 'Dirección Comercial', pin: '3333', avatar: 'IA', color: '#047857' },
-  { id: 'cris', name: 'Cris', role: 'Logística & Embarques', dept: 'Despacho & Transporte', pin: '4444', avatar: 'CR', color: '#b45309' },
-  { id: 'sandra', name: 'Sandra', role: 'Dirección General', dept: 'Dirección General', pin: '1234', avatar: 'SA', color: '#286f3b' },
-  { id: 'esme', name: 'Esme', role: 'Supervisión de Calidad & Lotes', dept: 'Control de Lotes SGC', pin: '5555', avatar: 'ES', color: '#7c3aed' }
+  { id: 'aless', name: 'Aless', roleKey: 'ops_quality', role: 'Supervisión Operativa & Calidad', dept: 'Operación y Calidad', pin: '1111', avatar: 'AL', color: '#8c5a1e' },
+  { id: 'emanuelle', name: 'Emanuelle', roleKey: 'ops_quality', role: 'Supervisión Operativa & Calidad', dept: 'Operación y Calidad', pin: '2222', avatar: 'EM', color: '#1d4ed8' },
+  { id: 'ian', name: 'Ian', roleKey: 'it_support', role: 'IT & Soporte Multifuncional', dept: 'Soporte Técnico y Operativo', pin: '3333', avatar: 'IA', color: '#047857' },
+  { id: 'cris', name: 'Cris', roleKey: 'inspections_deliveries', role: 'Inspecciones & Entregas', dept: 'Calidad y Logística', pin: '4444', avatar: 'CR', color: '#b45309' },
+  { id: 'sandra', name: 'Sandra', roleKey: 'director', role: 'Dirección General', dept: 'Dirección General', pin: '1234', avatar: 'SA', color: '#286f3b' },
+  { id: 'esme', name: 'Esme', roleKey: 'ops_multifunctional', role: 'Coordinación Operativa Multifuncional', dept: 'Coordinación Operativa', pin: '5555', avatar: 'ES', color: '#7c3aed' }
 ];
+
+const ROLE_PERMISSIONS = {
+  director: new Set([
+    'orders.read','orders.create','orders.update','orders.expand','orders.reopen','orders.archive','orders.soft_delete','orders.assign',
+    'production.read',
+    'inventory.read','inventory.manual_stock','inventory.assign_stock',
+    'catalog.create','catalog.update','catalog.set_active',
+    'quality.read',
+    'deliveries.read',
+    'loadplan.use','reports.export',
+    'users.manage','system.reset'
+  ]),
+  it_support: new Set(['*']),
+  ops_quality: new Set([
+    'orders.read','orders.assign',
+    'production.read','production.move','production.adjust',
+    'inventory.read','inventory.manual_stock','inventory.assign_stock',
+    'quality.read','quality.inspect','quality.edit_inspection','quality.request_rework','quality.reinspect','quality.close_nc','quality.release',
+    'deliveries.read',
+    'loadplan.use','reports.export'
+  ]),
+  ops_multifunctional: new Set([
+    'orders.read','orders.create','orders.update','orders.expand','orders.reopen','orders.archive','orders.assign',
+    'production.read','production.move','production.adjust',
+    'inventory.read','inventory.manual_stock','inventory.assign_stock',
+    'catalog.create','catalog.update','catalog.set_active',
+    'quality.read','quality.inspect','quality.edit_inspection','quality.request_rework','quality.reinspect','quality.close_nc',
+    'deliveries.read','deliveries.schedule','deliveries.confirm',
+    'loadplan.use','reports.export'
+  ]),
+  inspections_deliveries: new Set([
+    'orders.read','production.read','inventory.read',
+    'quality.read','quality.inspect','quality.edit_inspection','quality.request_rework','quality.reinspect',
+    'deliveries.read','deliveries.schedule','deliveries.confirm',
+    'loadplan.use','reports.export'
+  ])
+};
+
+function can(permission){
+  if(!currentUser) return false;
+  if(permission === 'quality.release'){
+    return currentUser.roleKey === 'ops_quality';
+  }
+  const permissions = ROLE_PERMISSIONS[currentUser.roleKey] || new Set();
+  return permissions.has('*') || permissions.has(permission);
+}
+
+function requirePermission(permission, actionLabel = 'realizar esta acción'){
+  if(can(permission)) return true;
+  const role = currentUser?.role || 'Sin perfil';
+  alert(`Tu perfil (${role}) no tiene autorización para ${actionLabel}.`);
+  return false;
+}
 let currentUser = USERS[0];
 let pinEntry = '';
 let selectedLoginUserId = 'aless';
@@ -2274,6 +2327,7 @@ function onKanbanColDrop(event, toStage){
 }
 
 function transferKanbanStage(aid, fromStage, toStage, qty, customNotes = ''){
+  if(!requirePermission('production.move','mover piezas entre etapas de producción')) return;
   const a = state.allocations.find(x => x.id === aid);
   if(!a) return;
   const currentFromQty = (a.stages && a.stages[fromStage]) || 0;
@@ -2376,6 +2430,7 @@ function hideKanbanToast(){
 }
 
 function undoLastKanbanMove(){
+  if(!requirePermission('production.adjust','deshacer un movimiento de producción')) return;
   if(!lastKanbanAction) return;
   const { aid, fromStage, toStage, qty, previousFrom, previousTo, createdLotId } = lastKanbanAction;
   const a = state.allocations.find(x => x.id === aid);
@@ -2439,6 +2494,7 @@ function openAdjustKanbanModal(aid, fromStage, toStage, currentMovedQty){
 }
 
 function applyAdjustKanbanMove(aid, fromStage, toStage, totalInMove){
+  if(!requirePermission('production.adjust','ajustar un movimiento de producción')) return;
   const newQty = +val('adj_transfer_qty') || 0;
   const notes = val('adj_notes');
   if(newQty <= 0 || newQty > totalInMove){
@@ -3411,11 +3467,15 @@ function openManualStockModal(defaultProductCode = ''){
 }
 
 function saveManualStock(){
+  if(!requirePermission('inventory.manual_stock','actualizar stock manualmente')) return;
   const prodCode = val('man_prod_code');
   const sawmill = val('man_sawmill');
   const qty = +val('man_qty') || 0;
   const stage = val('man_stage') || 'stock_entrega';
   const quality = val('man_quality') || 'Liberado';
+  if(quality === 'Liberado' && !can('quality.release')){
+    return alert('Sólo Emanuelle o Aless pueden registrar stock manual directamente como Liberado. Selecciona Pendiente de inspección o Retenido.');
+  }
   const orderId = val('man_order_id') || '';
   const reason = val('man_reason') || '';
 
@@ -3552,6 +3612,7 @@ function openAssignStockToOrderModal(defaultProductCode = ''){
 }
 
 function saveAssignStockToOrder(productCode){
+  if(!requirePermission('inventory.assign_stock','asignar stock existente a una orden')) return;
   const targetVal = val('asg_order_target');
   if(!targetVal) return alert('Por favor selecciona una orden de compra destino.');
   const [orderId, lineId] = targetVal.split('__');
@@ -5424,6 +5485,7 @@ function removeNewOrderLine(idx){
   renderNewOrderModal();
 }
 function saveNewOrder(){
+  if(!requirePermission('orders.create','crear órdenes de compra')) return;
   syncNewOrderDraftFromDOM();
   const id = (newOrderDraft.id || val('no_id')).trim();
   const plant = newOrderDraft.plant || val('no_plant') || 'Planta 1';
@@ -5748,6 +5810,7 @@ function syncEditOrderDraftFromDOM(){
 }
 
 function saveEditOrder(orderId){
+  if(!requirePermission('orders.update','modificar órdenes de compra')) return;
   syncEditOrderDraftFromDOM();
   const o = orderById(orderId);
   if(!o) return alert('Orden no encontrada: ' + orderId);
@@ -5869,6 +5932,7 @@ function editOrderNumber(orderId){
   `, true);
 }
 function saveEditOrderNumber(oldId){
+  if(!requirePermission('orders.update','modificar el número de una orden')) return;
   const o = orderById(oldId);
   if(!o) return alert('Orden no encontrada');
   const newId = val('edit_new_oc').trim();
@@ -5932,6 +5996,7 @@ function quickEditProduction(aid){
   `,true);
 }
 function saveQuickProduction(aid){
+  if(!requirePermission('production.adjust','ajustar cantidades de producción')) return;
   const a=state.allocations.find(x=>x.id===aid);
   const note=val('stage_note');
   const newStages={};
@@ -6166,6 +6231,7 @@ function assignOrder(id){
 }
 
 function saveOrderAssignment(orderId){
+  if(!requirePermission('orders.assign','asignar órdenes a aserraderos')) return;
   const o = orderById(orderId);
   if(!o) return;
   let totalAssignedInModal = 0;
@@ -6242,9 +6308,11 @@ function saveOrderAssignment(orderId){
   showKanbanToast(`✓ ${totalAssignedInModal} piezas asignadas a aserraderos`);
 }
 function expandOrder(id){const o=orderById(id),line=o.lines[0];modal(`<div class="modal-head"><h3>Ampliar OC ${id}</h3><button class="btn secondary" onclick="closeModal()">Cerrar</button></div><div class="modal-body"><div class="notice">La ampliación conserva el valor original en el historial y agrega unidades nuevas a producción.</div><div class="form-grid">${field('ex_add','Cantidad adicional','','number')}${field('ex_cos','Asignar adicional a Cosme','0','number')}${field('ex_dum','Asignar adicional a Duma','0','number')}</div><div class="field" style="margin-top:10px"><label>Motivo</label><textarea id="ex_reason" placeholder="Motivo de la ampliación"></textarea></div></div><div class="modal-foot"><button class="btn primary" onclick="saveExpand('${id}')">Guardar ampliación</button></div>`,true)}
-function saveExpand(id){const add=+val('ex_add'),cos=+val('ex_cos'),dum=+val('ex_dum'),reason=val('ex_reason')||'Sin motivo especificado';if(!add||add<=0||cos+dum!==add)return alert('La cantidad adicional debe coincidir con Cosme + Duma.');const o=orderById(id),line=o.lines[0],before=line.qty;line.qty+=add;o.status='Activa';o.history.unshift(h('Ampliación de OC',`Cantidad ${before} → ${line.qty}. Motivo: ${reason}`));[['Cosme',cos],['Duma',dum]].forEach(([sw,q])=>{if(!q)return;let a=state.allocations.find(x=>x.orderId===id&&x.lineId===line.id&&x.sawmill===sw);if(a){a.qty+=q;a.stages.corte+=q;a.history.unshift(h('Ampliación de asignación',`+${q} piezas agregadas en corte.`))}else{state.allocations.push({id:uid('ASG'),orderId:id,lineId:line.id,productCode:line.productCode,sawmill:sw,qty:q,stages:{corte:q,armado:0,por_estufa:0,estufando:0,por_limpiar:0,stock_entrega:0},history:[h('Asignación',`${q} piezas a ${sw}.`)]})}});save();render();closeModal();openOrder(id)}
+function saveExpand(id){
+  if(!requirePermission('orders.expand','ampliar órdenes de compra')) return;const add=+val('ex_add'),cos=+val('ex_cos'),dum=+val('ex_dum'),reason=val('ex_reason')||'Sin motivo especificado';if(!add||add<=0||cos+dum!==add)return alert('La cantidad adicional debe coincidir con Cosme + Duma.');const o=orderById(id),line=o.lines[0],before=line.qty;line.qty+=add;o.status='Activa';o.history.unshift(h('Ampliación de OC',`Cantidad ${before} → ${line.qty}. Motivo: ${reason}`));[['Cosme',cos],['Duma',dum]].forEach(([sw,q])=>{if(!q)return;let a=state.allocations.find(x=>x.orderId===id&&x.lineId===line.id&&x.sawmill===sw);if(a){a.qty+=q;a.stages.corte+=q;a.history.unshift(h('Ampliación de asignación',`+${q} piezas agregadas en corte.`))}else{state.allocations.push({id:uid('ASG'),orderId:id,lineId:line.id,productCode:line.productCode,sawmill:sw,qty:q,stages:{corte:q,armado:0,por_estufa:0,estufando:0,por_limpiar:0,stock_entrega:0},history:[h('Asignación',`${q} piezas a ${sw}.`)]})}});save();render();closeModal();openOrder(id)}
 function reopenOrder(id){const o=orderById(id);modal(`<div class="modal-head"><h3>Reabrir ${id}</h3><button class="btn secondary" onclick="closeModal()">Cerrar</button></div><div class="modal-body"><div class="field"><label>Motivo de reapertura</label><textarea id="ro_reason"></textarea></div></div><div class="modal-foot"><button class="btn warn" onclick="saveReopen('${id}')">Confirmar reapertura</button></div>`,true)}
-function saveReopen(id){const o=orderById(id),r=val('ro_reason')||'Sin motivo especificado';o.status='Activa';o.history.unshift(h('Reapertura de OC',`Estado Cerrada → Activa. Motivo: ${r}`));save();render();closeModal();openOrder(id)}
+function saveReopen(id){
+  if(!requirePermission('orders.reopen','reabrir órdenes de compra')) return;const o=orderById(id),r=val('ro_reason')||'Sin motivo especificado';o.status='Activa';o.history.unshift(h('Reapertura de OC',`Estado Cerrada → Activa. Motivo: ${r}`));save();render();closeModal();openOrder(id)}
 
 function promptArchiveOrder(id){
   const o = orderById(id);
@@ -6283,6 +6351,7 @@ function promptArchiveOrder(id){
 }
 
 function executeArchiveOrder(id){
+  if(!requirePermission('orders.archive','archivar órdenes de compra')) return;
   const o = orderById(id);
   if(!o) return;
   const reason = (document.getElementById('archive_order_reason')?.value || '').trim();
@@ -6307,6 +6376,7 @@ function archiveOrder(id){
 }
 
 function unarchiveOrder(id){
+  if(!requirePermission('orders.archive','desarchivar órdenes de compra')) return;
   const o = orderById(id);
   if(!o) return;
   if(!confirm(`¿Deseas desarchivar la Orden de Compra ${o.id} y reactivarla en el flujo operativo?`)) return;
@@ -6366,6 +6436,7 @@ function promptDeleteOrder(id){
 }
 
 function executeSoftDeleteOrder(id){
+  if(!requirePermission('orders.soft_delete','enviar órdenes a la papelera de auditoría')) return;
   const o = orderById(id);
   if(!o) return;
   const reason = (document.getElementById('del_order_reason')?.value || '').trim();
@@ -6386,6 +6457,7 @@ function executeSoftDeleteOrder(id){
 }
 
 function restoreOrder(id){
+  if(!requirePermission('orders.soft_delete','restaurar órdenes desde la papelera')) return;
   const o=orderById(id);
   if(!o) return;
   if(!confirm(`¿Deseas restaurar la orden ${o.id} a su flujo operativo activo?`)) return;
@@ -6663,6 +6735,7 @@ function onInspectionResultChange(val){
 }
 
 function saveInspection(lotId){
+  if(!requirePermission('quality.inspect','registrar inspecciones')) return;
   const l=lotById(lotId);
   const isReworkChecked=document.getElementById('in_request_rework')?.checked;
   let result=val('in_result');
@@ -6800,6 +6873,7 @@ function editInspection(inspId){
 }
 
 function saveEditInspection(inspId){
+  if(!requirePermission('quality.edit_inspection','editar inspecciones')) return;
   const i=state.inspections.find(x=>x.id===inspId);
   const l=lotById(i.lotId);
   const res=val('edit_in_result');
@@ -6984,6 +7058,7 @@ function requestInspectionRework(id){
 }
 
 function saveInspectionRework(id){
+  if(!requirePermission('quality.request_rework','solicitar retrabajos')) return;
   const i=state.inspections.find(x=>x.id===id);
   const l=lotById(i.lotId);
   const qty=+val('rw_qty')||(l?l.qty:i.sample);
@@ -7010,6 +7085,7 @@ function sendInspRework(id){
 }
 
 function reinspectFromInsp(id){
+  if(!requirePermission('quality.reinspect','habilitar reinspecciones')) return;
   const i=state.inspections.find(x=>x.id===id);
   const l=lotById(i.lotId);
   if(l){
@@ -7025,6 +7101,7 @@ function reinspectFromInsp(id){
 }
 
 function closeInspNC(id){
+  if(!requirePermission('quality.close_nc','cerrar no conformidades')) return;
   const i=state.inspections.find(x=>x.id===id);
   i.ncStatus='Cerrada';
   i.history.unshift(h('Cierre de NC','Incidente cerrado y registrado conforme a expediente.'));
@@ -7034,7 +7111,9 @@ function closeInspNC(id){
 }
 
 function releaseInspection(id){
+  if(!requirePermission('quality.release','liberar lotes')) return;
   const i=state.inspections.find(x=>x.id===id);
+  if(!i) return;
   modal(`
     <div class="modal-head">
       <h3>Liberar ${i.lotId}</h3>
@@ -7042,14 +7121,13 @@ function releaseInspection(id){
     </div>
     <div class="modal-body">
       <div class="notice">
-        La autoridad formal de liberación del SGC se limita a <b>Gustavo</b> o <b>Alessandri</b>.
+        La liberación formal está autorizada únicamente para los perfiles de <b>Supervisión Operativa & Calidad</b>.
       </div>
       <div class="field">
-        <label>Autoridad que autoriza la liberación</label>
-        <select id="rel_by">
-          <option>Gustavo</option>
-          <option>Alessandri</option>
-        </select>
+        <label>Autoridad activa</label>
+        <div style="padding:9px 11px;border:1px solid var(--line);border-radius:8px;background:var(--soft);font-weight:700">
+          ${esc(currentUser?.name || '—')} · ${esc(currentUser?.role || '')}
+        </div>
       </div>
     </div>
     <div class="modal-foot">
@@ -7060,8 +7138,9 @@ function releaseInspection(id){
 }
 
 function saveRelease(id){
+  if(!requirePermission('quality.release','liberar lotes')) return;
   const i=state.inspections.find(x=>x.id===id);
-  const by=val('rel_by');
+  const by=currentUser?.name || 'Usuario no identificado';
   const l=lotById(i.lotId);
   i.release='Liberado';
   i.releasedBy=by;
@@ -7228,6 +7307,7 @@ function showDelivery(defaultOrderId, defaultLotId, defaultDate){
 }
 
 function saveDelivery(){
+  if(!requirePermission('deliveries.schedule','programar entregas')) return;
   const lotId = val('del_lot');
   const date = val('del_date') || today();
   const l = lotById(lotId);
@@ -7263,6 +7343,7 @@ function saveDelivery(){
 }
 
 function confirmDelivery(id){
+  if(!requirePermission('deliveries.confirm','confirmar entregas en planta')) return;
   const d = state.deliveries.find(x => x.id === id);
   if(!d || d.status === 'Entregada') return;
   const l = lotById(d.lotId);
@@ -8223,6 +8304,7 @@ function cancelAddProductModal(){
 }
 
 async function saveProductToCatalog(){
+  if(!requirePermission('catalog.create','dar de alta productos en el catálogo')) return;
   const returnContext = addProductReturnContext;
   const errEl = document.getElementById('new_prod_error');
   const showErr = (msg) => {
@@ -8451,6 +8533,7 @@ function updateEditStackHeightPreview(){
 }
 
 async function saveEditedProduct(code){
+  if(!requirePermission('catalog.update','editar productos del catálogo')) return;
   const cleanCode = String(code).trim();
   const name = (document.getElementById('edit_prod_name')?.value || '').trim();
   const family = (document.getElementById('edit_prod_family')?.value || 'CAMPAR').trim();
@@ -8523,6 +8606,7 @@ async function saveEditedProduct(code){
 }
 
 async function toggleCustomProductActive(code){
+  if(!requirePermission('catalog.set_active','activar o desactivar productos')) return;
   const cleanCode = String(code || '').trim();
   if(!state.customProducts) state.customProducts = [];
   const idx = state.customProducts.findIndex(p => String(p.code).trim() === cleanCode);
@@ -8598,6 +8682,7 @@ function confirmDeleteCustomProduct(code){
 }
 
 async function executeDeleteCustomProduct(code){
+  if(!requirePermission('catalog.delete','eliminar productos del catálogo')) return;
   if(state.customProducts){
     state.customProducts = state.customProducts.filter(p => String(p.code).trim() !== String(code).trim());
   }
