@@ -57,6 +57,7 @@ El flujo de liberación actual menciona a **Gustavo** como autoridad formal junt
 | Archivar / restaurar OC | A/O | O | — | — | — | O |
 | Eliminar lógicamente OC | A | O | — | — | — | O |
 | Asignar OC a Cosme/Duma | O | O | O | — | O | O |
+| Vincular OC de recepción/reclasificación | O | O | — | O | — | O |
 | Consultar Producción/KanBan | V | V | V | V | V | V |
 | Mover piezas entre etapas | — | O | O | — | O | O |
 | Ajustar avance de producción | — | O | O | — | O | O |
@@ -81,7 +82,7 @@ El flujo de liberación actual menciona a **Gustavo** como autoridad formal junt
 | Administrar usuarios/permisos | ADM | O/ADM | — | — | — | — |
 | Reiniciar datos/demo | ADM | O/ADM | — | — | — | — |
 
-*** Regla adicional:** sólo Emanuelle y Aless pueden registrar stock manual directamente con estado **Liberado**. Los demás perfiles autorizados a actualizar stock deben usar un estado no liberado cuando corresponda.
+**Regla adicional:** sólo Emanuelle y Aless pueden registrar stock manual directamente con estado **Liberado**. Los demás perfiles autorizados a actualizar stock deben usar un estado no liberado cuando corresponda.
 
 > **Nota de diseño:** los permisos marcados para Sandra como V en operaciones técnicas buscan evitar que Dirección sea la ejecutora rutinaria de movimientos de producción o calidad. Puede supervisar y autorizar acciones administrativas críticas sin convertirse automáticamente en autoridad de liberación de producto.
 
@@ -116,7 +117,7 @@ Autoridades previstas:
 - Emanuelle (Gustavo).
 - Aless (Alessandri).
 
-Sandra, Ian, Cris, Emanuelle y Esme podrán consultar la liberación, pero no emitirla salvo decisión posterior expresa.
+Sandra, Ian, Cris y Esme podrán consultar la liberación, pero no emitirla salvo decisión posterior expresa. La autoridad formal permanece en Emanuelle y Aless.
 
 ---
 
@@ -133,6 +134,7 @@ Estos códigos servirán para frontend y RLS/backend.
 - `orders.archive`
 - `orders.soft_delete`
 - `orders.assign`
+- `orders.link_receipt`
 
 ### Producción
 - `production.read`
