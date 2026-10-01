@@ -5318,36 +5318,25 @@ function syncNewOrderDraftFromDOM(){
   });
 }
 
-function updateNewOrderProdPreview(idx){
-  const el = document.getElementById(`line_prod_preview_${idx}`);
-  const sel = document.getElementById(`line_prod_${idx}`);
-  if(!el || !sel) return;
-  const p = product(sel.value);
-  el.innerHTML = `<b>${esc(p.code)}</b> · ${esc(p.name)} (${esc(p.dims)}) ${p.ht ? '<span style="color:#286f3b;font-weight:bold">[HT Certificado]</span>' : ''}`;
+
+
+function getCatalogProductMatches(query, selectedCode = ''){
+  const q = String(query || '').toLowerCase().trim();
+  return selectableProducts(selectedCode).filter(p => {
+    if(!q) return true;
+    return String(p.code || '').toLowerCase().includes(q) ||
+      String(p.name || '').toLowerCase().includes(q) ||
+      String(p.family || '').toLowerCase().includes(q) ||
+      String(p.dims || '').toLowerCase().includes(q);
+  });
 }
 
-function filterNewOrderProdSelect(query, idx){
-  const sel = document.getElementById(`line_prod_${idx}`);
-  if(!sel) return;
-  const q = (query || '').toLowerCase().trim();
-  const currentVal = (newOrderDraft.lines && newOrderDraft.lines[idx]) ? newOrderDraft.lines[idx].productCode : sel.value;
-  let matching = PRODUCTS;
-  if(q){
-    matching = PRODUCTS.filter(p => 
-      p.code.toLowerCase().includes(q) || 
-      p.name.toLowerCase().includes(q) || 
-      p.family.toLowerCase().includes(q) ||
-      (p.dims && p.dims.toLowerCase().includes(q))
-    );
-  }
-  if(!matching.length){
-    sel.innerHTML = `<option value="">Sin productos coincidentes con "${esc(q)}"</option>`;
-    const previewEl = document.getElementById(`line_prod_preview_${idx}`);
-    if(previewEl) previewEl.innerHTML = '<span style="color:var(--red)">No se encontraron modelos</span>';
-    return;
+function renderCatalogPickerResults(items, idx, mode){
+  if(!items.length){
+    return '<div style="padding:12px;font-size:12px;color:var(--muted);text-align:center">No se encontraron modelos con ese criterio.</div>';
   }
   const families = {};
-  matching.forEach(p => {
+  items.forEach(p => {
     const fam = p.family || 'CAMPAR';
     if(!families[fam]) families[fam] = [];
     families[fam].push(p);
@@ -5359,23 +5348,58 @@ function filterNewOrderProdSelect(query, idx){
     if(b === 'NESTLÉ') return 1;
     return a.localeCompare(b);
   });
-  let html = '';
-  for(const fam of sortedFamilies){
-    const prods = families[fam];
-    html += `<optgroup label="Catálogo ${esc(fam)} (${prods.length})">` +
-      prods.map(p => `<option value="${p.code}" ${p.code === currentVal ? 'selected' : ''}>${p.code} · ${p.name} (${p.length}×${p.width}×${p.height} cm)${p.ht ? ' [HT]' : ''}</option>`).join('') +
-      `</optgroup>`;
+  return sortedFamilies.map(fam => `
+    <div style="padding:6px 8px 4px;font-size:10.5px;font-weight:800;color:var(--navy);text-transform:uppercase">${esc(fam)} (${families[fam].length})</div>
+    ${families[fam].map(p => {
+      const encoded = encodeURIComponent(String(p.code));
+      const fn = mode === 'edit' ? 'selectEditOrderProduct' : 'selectNewOrderProduct';
+      return `<button type="button" onclick="${fn}(${idx}, decodeURIComponent(this.dataset.code))" data-code="${esc(encoded)}" style="display:block;width:100%;border:0;background:#fff;border-radius:8px;padding:7px 9px;text-align:left;cursor:pointer;color:var(--text);font-size:12px" onmouseover="this.style.background='var(--soft)'" onmouseout="this.style.background='#fff'"><b>${esc(p.code)}</b> – ${esc(p.name)} <span style="color:var(--muted)">(${esc(p.dims)} · ${p.pcsPerStack} pz/estiba)${p.ht ? ' [HT]' : ''}</span></button>`;
+    }).join('')}
+  `).join('');
+}
+
+function filterNewOrderProdSelect(query, idx){
+  const results = document.getElementById(`line_prod_results_${idx}`);
+  const hidden = document.getElementById(`line_prod_${idx}`);
+  if(!results || !hidden) return;
+  const matching = getCatalogProductMatches(query, hidden.value);
+  results.innerHTML = renderCatalogPickerResults(matching, idx, 'new');
+  results.style.display = 'block';
+}
+
+function toggleNewOrderProductResults(idx){
+  const results = document.getElementById(`line_prod_results_${idx}`);
+  const hidden = document.getElementById(`line_prod_${idx}`);
+  if(!results || !hidden) return;
+  if(results.style.display === 'block'){
+    results.style.display = 'none';
+    return;
   }
-  sel.innerHTML = html;
-  if(matching.some(p => p.code === currentVal)){
-    sel.value = currentVal;
-  } else {
-    sel.value = matching[0].code;
-    if(newOrderDraft.lines && newOrderDraft.lines[idx]){
-      newOrderDraft.lines[idx].productCode = matching[0].code;
-    }
-  }
+  results.innerHTML = renderCatalogPickerResults(getCatalogProductMatches('', hidden.value), idx, 'new');
+  results.style.display = 'block';
+}
+
+function selectNewOrderProduct(idx, code){
+  if(!newOrderDraft?.lines?.[idx]) return;
+  const p = product(code);
+  newOrderDraft.lines[idx].productCode = p.code;
+  const hidden = document.getElementById(`line_prod_${idx}`);
+  const textEl = document.getElementById(`line_prod_text_${idx}`);
+  const results = document.getElementById(`line_prod_results_${idx}`);
+  const search = document.getElementById(`line_prod_search_${idx}`);
+  if(hidden) hidden.value = p.code;
+  if(textEl) textEl.textContent = `${p.code} – ${p.name} (${p.dims} · ${p.pcsPerStack} pz/estiba)${p.ht ? ' [HT]' : ''}`;
+  if(results) results.style.display = 'none';
+  if(search) search.value = '';
   updateNewOrderProdPreview(idx);
+}
+
+function updateNewOrderProdPreview(idx){
+  const el = document.getElementById(`line_prod_preview_${idx}`);
+  const hidden = document.getElementById(`line_prod_${idx}`);
+  if(!el || !hidden) return;
+  const p = product(hidden.value);
+  el.innerHTML = `<b>${esc(p.code)}</b> · ${esc(p.name)} (${esc(p.dims)}) ${p.ht ? '<span style="color:#286f3b;font-weight:bold">[HT Certificado]</span>' : ''}`;
 }
 
 function renderNewOrderModal(){
@@ -5427,10 +5451,13 @@ function renderNewOrderModal(){
                   <label style="margin:0">Producto del Catálogo (Buscar por código o nombre)</label>
                   <button type="button" class="btn small soft" style="font-size:10.5px;padding:2px 7px;color:#047857;font-weight:700" onclick="openAddProductModal({type:'newOrder',lineIdx:${idx}})" title="Dar de alta nuevo modelo si no existe">+ Nuevo Modelo</button>
                 </div>
-                <input type="text" placeholder="🔍 Escribe código (ej. 199071) o nombre (ej. Nestlé, Tarima 48x40)..." class="input" style="font-size:12px;padding:6px 10px;margin-bottom:4px;border:1.5px solid #94a3b8;border-radius:8px;background:#fff;width:100%;box-sizing:border-box" oninput="filterNewOrderProdSelect(this.value, ${idx})">
-                <select id="line_prod_${idx}" onchange="newOrderDraft.lines[${idx}].productCode=this.value;updateNewOrderProdPreview(${idx});" style="font-weight:600">
-                  ${renderProductOptions(l.productCode)}
-                </select>
+                <input type="text" id="line_prod_search_${idx}" placeholder="🔍 Escribe código (ej. 199071) o nombre (ej. Nestlé, Tarima 48x40)..." class="input" style="font-size:12px;padding:6px 10px;margin-bottom:4px;border:1.5px solid #94a3b8;border-radius:8px;background:#fff;width:100%;box-sizing:border-box" oninput="filterNewOrderProdSelect(this.value, ${idx})">
+                <input type="hidden" id="line_prod_${idx}" value="${esc(l.productCode)}">
+                <button type="button" id="line_prod_button_${idx}" onclick="toggleNewOrderProductResults(${idx})" style="width:100%;border:1px solid var(--line);background:#fff;border-radius:12px;padding:10px 11px;color:var(--text);font-weight:600;display:flex;align-items:center;justify-content:space-between;text-align:left;cursor:pointer">
+                  <span id="line_prod_text_${idx}">${esc(p.code)} – ${esc(p.name)} (${esc(p.dims)} · ${p.pcsPerStack} pz/estiba)${p.ht ? ' [HT]' : ''}</span>
+                  <span style="font-size:12px;color:var(--muted);margin-left:10px">⌄</span>
+                </button>
+                <div id="line_prod_results_${idx}" style="display:none;max-height:230px;overflow-y:auto;background:#fff;border:1px solid var(--line);border-radius:12px;margin-top:4px;box-shadow:var(--shadow);padding:5px;position:relative;z-index:5"></div>
                 <div id="line_prod_preview_${idx}" style="font-size:11px;color:var(--navy);font-weight:700;margin-top:4px;background:#fff;padding:4px 8px;border-radius:6px;border:1px solid #cbd5e1">
                   <b>${esc(p.code)}</b> · ${esc(p.name)} (${esc(p.dims)}) ${p.ht ? '<span style="color:#286f3b;font-weight:bold">[HT Certificado]</span>' : ''}
                 </div>
@@ -5648,10 +5675,13 @@ function renderEditOrderModal(){
                     <label style="margin:0">Producto del Catálogo Maestro (Buscar por código o nombre)</label>
                     <button type="button" class="btn small soft" style="font-size:10.5px;padding:2px 7px;color:#047857;font-weight:700" onclick="openAddProductModal({type:'editOrder',lineIdx:${idx}})" title="Dar de alta nuevo modelo si no existe">+ Nuevo Modelo</button>
                   </div>
-                  <input type="text" placeholder="🔍 Escribe código (ej. 199071) o modelo (ej. Nestlé)..." class="input" style="font-size:11px;padding:5px 8px;margin-bottom:4px;border:1.5px solid #94a3b8;border-radius:6px;width:100%;box-sizing:border-box" oninput="filterEditOrderProdSelect(this.value, ${idx})">
-                  <select id="edit_line_prod_${idx}" onchange="editOrderDraft.lines[${idx}].productCode = this.value; updateEditOrderProdPreview(${idx})" style="font-weight:600">
-                    ${renderProductOptions(l.productCode)}
-                  </select>
+                  <input type="text" id="edit_line_prod_search_${idx}" placeholder="🔍 Escribe código (ej. 199071) o modelo (ej. Nestlé)..." class="input" style="font-size:11px;padding:5px 8px;margin-bottom:4px;border:1.5px solid #94a3b8;border-radius:6px;width:100%;box-sizing:border-box" oninput="filterEditOrderProdSelect(this.value, ${idx})">
+                  <input type="hidden" id="edit_line_prod_${idx}" value="${esc(l.productCode)}">
+                  <button type="button" id="edit_line_prod_button_${idx}" onclick="toggleEditOrderProductResults(${idx})" style="width:100%;border:1px solid var(--line);background:#fff;border-radius:12px;padding:10px 11px;color:var(--text);font-weight:600;display:flex;align-items:center;justify-content:space-between;text-align:left;cursor:pointer">
+                    <span id="edit_line_prod_text_${idx}">${esc(p.code)} – ${esc(p.name)} (${esc(p.dims)} · ${p.pcsPerStack} pz/estiba)${p.ht ? ' [HT]' : ''}</span>
+                    <span style="font-size:12px;color:var(--muted);margin-left:10px">⌄</span>
+                  </button>
+                  <div id="edit_line_prod_results_${idx}" style="display:none;max-height:230px;overflow-y:auto;background:#fff;border:1px solid var(--line);border-radius:12px;margin-top:4px;box-shadow:var(--shadow);padding:5px;position:relative;z-index:5"></div>
                   <div id="edit_line_prod_preview_${idx}" style="font-size:11px;color:var(--navy);font-weight:700;margin-top:4px;background:#fff;padding:4px 8px;border-radius:6px;border:1px solid #cbd5e1">
                     <b>${esc(p.code)}</b> · ${esc(p.name)} (${esc(p.dims)}) ${p.ht ? '<span style="color:#286f3b;font-weight:bold">[HT Certificado]</span>' : ''}
                   </div>
@@ -5699,62 +5729,50 @@ function renderEditOrderModal(){
 }
 
 function filterEditOrderProdSelect(query, idx){
-  const sel = document.getElementById(`edit_line_prod_${idx}`);
-  if(!sel || !editOrderDraft || !editOrderDraft.lines[idx]) return;
-  const q = (query || '').toLowerCase().trim();
-  const currentVal = editOrderDraft.lines[idx].productCode || sel.value;
-  let matching = PRODUCTS;
-  if(q){
-    matching = PRODUCTS.filter(p => 
-      p.code.toLowerCase().includes(q) || 
-      p.name.toLowerCase().includes(q) || 
-      p.family.toLowerCase().includes(q) ||
-      (p.dims && p.dims.toLowerCase().includes(q))
-    );
-  }
-  if(!matching.length){
-    sel.innerHTML = `<option value="">Sin productos coincidentes con "${esc(q)}"</option>`;
-    const previewEl = document.getElementById(`edit_line_prod_preview_${idx}`);
-    if(previewEl) previewEl.innerHTML = '<span style="color:var(--red)">No se encontraron modelos</span>';
+  const results = document.getElementById(`edit_line_prod_results_${idx}`);
+  const hidden = document.getElementById(`edit_line_prod_${idx}`);
+  if(!results || !hidden || !editOrderDraft?.lines?.[idx]) return;
+  const matching = getCatalogProductMatches(query, hidden.value);
+  results.innerHTML = renderCatalogPickerResults(matching, idx, 'edit');
+  results.style.display = 'block';
+}
+
+function toggleEditOrderProductResults(idx){
+  const results = document.getElementById(`edit_line_prod_results_${idx}`);
+  const hidden = document.getElementById(`edit_line_prod_${idx}`);
+  if(!results || !hidden) return;
+  if(results.style.display === 'block'){
+    results.style.display = 'none';
     return;
   }
-  const families = {};
-  matching.forEach(p => {
-    const fam = p.family || 'CAMPAR';
-    if(!families[fam]) families[fam] = [];
-    families[fam].push(p);
-  });
-  const sortedFamilies = Object.keys(families).sort((a,b) => {
-    if(a === 'CAMPAR') return -1;
-    if(b === 'CAMPAR') return 1;
-    if(a === 'NESTLÉ') return -1;
-    if(b === 'NESTLÉ') return 1;
-    return a.localeCompare(b);
-  });
-  let html = '';
-  for(const fam of sortedFamilies){
-    const prods = families[fam];
-    html += `<optgroup label="Catálogo ${esc(fam)} (${prods.length})">` +
-      prods.map(p => `<option value="${p.code}" ${p.code === currentVal ? 'selected' : ''}>${p.code} · ${p.name} (${p.length}×${p.width}×${p.height} cm)${p.ht ? ' [HT]' : ''}</option>`).join('') +
-      `</optgroup>`;
-  }
-  sel.innerHTML = html;
-  if(matching.some(p => p.code === currentVal)){
-    sel.value = currentVal;
-  } else {
-    sel.value = matching[0].code;
-    editOrderDraft.lines[idx].productCode = matching[0].code;
-  }
+  results.innerHTML = renderCatalogPickerResults(getCatalogProductMatches('', hidden.value), idx, 'edit');
+  results.style.display = 'block';
+}
+
+function selectEditOrderProduct(idx, code){
+  if(!editOrderDraft?.lines?.[idx]) return;
+  const p = product(code);
+  editOrderDraft.lines[idx].productCode = p.code;
+  const hidden = document.getElementById(`edit_line_prod_${idx}`);
+  const textEl = document.getElementById(`edit_line_prod_text_${idx}`);
+  const results = document.getElementById(`edit_line_prod_results_${idx}`);
+  const search = document.getElementById(`edit_line_prod_search_${idx}`);
+  if(hidden) hidden.value = p.code;
+  if(textEl) textEl.textContent = `${p.code} – ${p.name} (${p.dims} · ${p.pcsPerStack} pz/estiba)${p.ht ? ' [HT]' : ''}`;
+  if(results) results.style.display = 'none';
+  if(search) search.value = '';
   updateEditOrderProdPreview(idx);
 }
 
 function updateEditOrderProdPreview(idx){
   const el = document.getElementById(`edit_line_prod_preview_${idx}`);
-  const sel = document.getElementById(`edit_line_prod_${idx}`);
-  if(!el || !sel) return;
-  const p = product(sel.value);
+  const hidden = document.getElementById(`edit_line_prod_${idx}`);
+  if(!el || !hidden) return;
+  const p = product(hidden.value);
   el.innerHTML = `<b>${esc(p.code)}</b> · ${esc(p.name)} (${esc(p.dims)}) ${p.ht ? '<span style="color:#286f3b;font-weight:bold">[HT Certificado]</span>' : ''}`;
 }
+
+
 
 function onEditOrderLineParamChange(idx){
   if(!editOrderDraft || !editOrderDraft.lines[idx]) return;
