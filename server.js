@@ -32,6 +32,7 @@ function getInitialState() {
     lots: [],
     inspections: [],
     deliveries: [],
+    orderLinks: [],
     customProducts: [],
     updatedAt: Date.now(),
     version: 10
@@ -47,6 +48,9 @@ function loadState() {
       serverState = JSON.parse(raw);
       if (!serverState.customProducts) {
         serverState.customProducts = [];
+      }
+      if (!serverState.orderLinks) {
+        serverState.orderLinks = [];
       }
       // Migrate or reset if demo orders exist
       if (serverState.orders && serverState.orders.some(o => o.id === 'OC-DEMO-001' || (o.id||'').includes('DEMO'))) {
