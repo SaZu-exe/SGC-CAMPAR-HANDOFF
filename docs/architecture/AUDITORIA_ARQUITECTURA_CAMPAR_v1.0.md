@@ -760,7 +760,7 @@ Antes de datos reales:
 ### Fase 1 — Congelar reglas de dominio
 Resolver explícitamente:
 
-1. ¿4 o 6 etapas productivas?
+1. **RESUELTO:** 6 etapas productivas: En corte → Armado → Por estufar → Estufando → Por limpiar → En stock para entrega.
 2. ¿NC como módulo visible o integrada en Calidad?
 3. usuarios y roles definitivos;
 4. autoridad exacta de liberación;
@@ -890,7 +890,7 @@ Estas decisiones deben quedar documentadas antes de generar el esquema definitiv
 
 | ID | Decisión | Estado |
 |---|---|---|
-| D-01 | Catálogo canónico de etapas productivas | Pendiente |
+| D-01 | Catálogo canónico de etapas productivas | **RESUELTO: 6 etapas AI Studio** |
 | D-02 | Estructura visible de No Conformidades | Pendiente |
 | D-03 | Usuarios y roles reales | Pendiente |
 | D-04 | Matriz de permisos y liberación | Pendiente |
@@ -930,4 +930,26 @@ Debe incluir:
 - vistas ATP/inventario;
 - plan de migración desde `state.json`.
 
-Antes de producir ese esquema se deben cerrar, al menos, D-01, D-03, D-04 y D-06.
+Antes de producir ese esquema se deben cerrar, al menos, D-03, D-04 y D-06. D-01 queda cerrado a favor del modelo actual de 6 etapas implementado en AI Studio.
+
+
+---
+
+## 18. Decisión posterior a auditoría — Base funcional AI Studio
+
+**Fecha:** 2026-10-01
+
+Se adopta como **línea base funcional vigente** el comportamiento actualmente implementado en AI Studio/GitHub. A partir de esta decisión:
+
+- el código operativo existente es la referencia principal para correcciones y ajustes;
+- la documentación histórica no debe forzar una regresión funcional del software;
+- la documentación del SGC se reconciliará posteriormente con las decisiones validadas del sistema;
+- las **6 etapas productivas canónicas** son:
+  1. En corte (`corte`)
+  2. Armado (`armado`)
+  3. Por estufar (`por_estufa`)
+  4. Estufando (`estufando`)
+  5. Por limpiar (`por_limpiar`)
+  6. En stock para entrega (`stock_entrega`)
+- cualquier lógica heredada basada en `estufado` / `limpios` como claves de etapa deberá eliminarse o migrarse al modelo de seis etapas;
+- los cambios futuros deben ser preferentemente quirúrgicos y conservar las funciones ya validadas visualmente en AI Studio.
