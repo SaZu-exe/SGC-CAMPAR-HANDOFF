@@ -32,11 +32,11 @@ La visibilidad puede seguir siendo amplia; la restricción principal debe aplica
 | ID técnico | Perfil visible actual | Rol funcional base |
 |---|---|---|
 | `sandra` | Sandra | Dirección General |
-| `ian` | Ian | Administración & Compras |
-| `emanuelle` | Emanuelle | Control de Producción |
-| `cris` | Cris | Logística & Embarques |
+| `ian` | Ian | IT & Soporte Multifuncional |
+| `emanuelle` | Emanuelle | Supervisión Operativa & Calidad |
+| `cris` | Cris | Inspecciones & Entregas |
 | `aless` | Aless | Supervisión Operativa & Calidad |
-| `esme` | Esme | Supervisión de Calidad & Lotes |
+| `esme` | Esme | Coordinación Operativa Multifuncional |
 
 ### Pendiente de alta
 
@@ -56,30 +56,32 @@ El flujo de liberación actual menciona a **Gustavo** como autoridad formal junt
 | Reabrir OC | A/O | O | — | — | — | O |
 | Archivar / restaurar OC | A/O | O | — | — | — | O |
 | Eliminar lógicamente OC | A | O | — | — | — | — |
-| Asignar OC a Cosme/Duma | O | O | O | — | V | O |
+| Asignar OC a Cosme/Duma | O | O | O | — | O | O |
 | Consultar Producción/KanBan | V | V | V | V | V | V |
-| Mover piezas entre etapas | V | O | O | — | O | O |
-| Ajustar avance de producción | V | O | O | — | O | O |
+| Mover piezas entre etapas | — | O | O | — | O | O |
+| Ajustar avance de producción | — | O | O | — | O | O |
 | Consultar Inventario/ATP | V | V | V | V | V | V |
 | Alta de producto al catálogo | O | O | — | — | — | O |
 | Editar producto personalizado | O | O | — | — | — | O |
 | Activar / inactivar producto | A/O | O | — | — | — | O |
-| Registrar stock manual | A/O | O | O | — | O | O |
+| Registrar stock manual | O* | O* | O | — | O | O* |
 | Asignar stock existente a OC | O | O | O | — | O | O |
 | Consultar inspecciones | V | V | V | V | V | V |
-| Crear inspección | V | O | — | — | O | O |
-| Editar inspección | V | — | — | — | O | O |
-| Solicitar retrabajo | V | — | O | — | O | O |
-| Habilitar reinspección | V | — | — | — | O | O |
-| Cerrar NC/incidente | V | — | — | — | A/O | O |
-| **Liberar lote** | V | — | — | — | **A** | — |
+| Crear inspección | — | O | O | O | O | O |
+| Editar inspección | — | O | O | O | O | O |
+| Solicitar retrabajo | — | O | O | O | O | O |
+| Habilitar reinspección | — | O | O | O | O | O |
+| Cerrar NC/incidente | — | O | O | — | O | O |
+| **Liberar lote** | — | — | **A** | — | **A** | — |
 | Consultar Entregas/Calendario | V | V | V | V | V | V |
-| Programar entrega | V | O | — | O | V | O |
-| Confirmar recepción/entrega | V | V | — | O | V | O |
-| Usar simulador de carga | V | O | O | O | V | O |
+| Programar entrega | — | O | — | O | — | O |
+| Confirmar recepción/entrega | — | O | — | O | — | O |
+| Usar simulador de carga | V | O | O | O | O | O |
 | Exportar PDFs/reportes | V | V | V | V | V | V |
-| Administrar usuarios/permisos | ADM | — | — | — | — | — |
-| Reiniciar datos/demo | ADM | — | — | — | — | — |
+| Administrar usuarios/permisos | ADM | O/ADM | — | — | — | — |
+| Reiniciar datos/demo | ADM | O/ADM | — | — | — | — |
+
+*** Regla adicional:** sólo Emanuelle y Aless pueden registrar stock manual directamente con estado **Liberado**. Los demás perfiles autorizados a actualizar stock deben usar un estado no liberado cuando corresponda.
 
 > **Nota de diseño:** los permisos marcados para Sandra como V en operaciones técnicas buscan evitar que Dirección sea la ejecutora rutinaria de movimientos de producción o calidad. Puede supervisar y autorizar acciones administrativas críticas sin convertirse automáticamente en autoridad de liberación de producto.
 
@@ -170,22 +172,19 @@ Estos códigos servirán para frontend y RLS/backend.
 ## 6. Perfiles técnicos propuestos
 
 ### Dirección General
-Permisos amplios de consulta y administración, con autorización administrativa, pero sin liberación técnica automática.
+Sandra conserva supervisión global, administración y acciones administrativas sobre OCs, catálogo e inventario, sin convertirse en autoridad técnica de liberación.
 
-### Administración & Compras
-Control operativo de OC, catálogo, inventario y programación administrativa.
-
-### Control de Producción
-Actualización de etapas, asignaciones operativas y stock de producción; sin autorización de calidad.
-
-### Logística & Embarques
-Programación y confirmación de entregas, simulación/carga y consulta de lotes liberados.
+### IT & Soporte Multifuncional
+Ian tiene acceso técnico/administrativo total al sistema para soporte, configuración y asistencia operativa. La única excepción deliberada es la liberación formal de calidad, reservada a Emanuelle y Aless.
 
 ### Supervisión Operativa & Calidad
-Rol compartido por Emanuelle y Aless. Incluye seguimiento de producción, actualización de stock e inventario operativo, inspección, retrabajo, reinspección, gestión de NC y liberación formal de lote.
+Rol compartido por Emanuelle (Gustavo) y Aless (Alessandri). Incluye asignaciones, producción, actualización de stock, inspección, retrabajo, reinspección, cierre de NC y liberación formal de lote.
 
-### Supervisión de Calidad & Lotes
-Inspección y seguimiento de lotes/NC; sin liberación formal por defecto.
+### Coordinación Operativa Multifuncional
+Esme participa de forma transversal en OCs, producción, inventario, catálogo, inspecciones, NC y logística, sin permiso de liberación formal ni administración de usuarios.
+
+### Inspecciones & Entregas
+Cris queda limitado a inspecciones, evidencia/retrabajo/reinspección y logística de entregas. No modifica OCs, producción, inventario ni libera lotes.
 
 ---
 
@@ -235,18 +234,15 @@ Registrar las acciones críticas en `audit_events`.
 
 ---
 
-## 10. Puntos pendientes de confirmación
+## 10. Decisiones de identidad y jerarquía cerradas
 
-1. **RESUELTO:** `Aless` corresponde a Alessandri.
-2. **RESUELTO:** `Emanuelle` corresponde a Gustavo y conservará ese nombre visible en la app.
-3. **RESUELTO:** Emanuelle y Aless compartirán el rol **Supervisión Operativa & Calidad** y ambos tendrán `quality.release`.
-4. **RESUELTO:** Miguel permanece fuera del sistema como chofer, sin usuario propio.
-5. **RESUELTO:** Ian tendrá acceso total técnico/administrativo como **IT & Soporte Multifuncional**, sin sustituir la autoridad formal de liberación de Emanuelle/Aless.
-6. Pendiente afinar el alcance definitivo de Esme como perfil multifuncional.
-7. Pendiente cerrar el detalle final de permisos de Cris dentro de Inspecciones & Entregas.
-
-Hasta cerrar estos puntos, esta matriz se considera **BORRADOR CONTROLADO** y no debe utilizarse todavía para bloquear funciones irreversiblemente.
-
+1. **Aless = Alessandri** y comparte rol con Emanuelle.
+2. **Emanuelle = Gustavo** y conserva el nombre visible “Emanuelle” en la app.
+3. **Emanuelle y Aless** comparten el rol **Supervisión Operativa & Calidad**.
+4. **Esme** queda como **Coordinación Operativa Multifuncional**.
+5. **Cris** queda como **Inspecciones & Entregas**.
+6. **Miguel** permanece fuera del sistema como chofer, sin usuario.
+7. **Ian** queda como **IT & Soporte Multifuncional**, con acceso total técnico/administrativo salvo la liberación formal de calidad.
 
 ---
 
@@ -262,3 +258,20 @@ Esto incluye:
 - mantener trazabilidad del motivo, usuario y fecha del ajuste.
 
 La actualización de stock no elimina la necesidad de respetar el estado de calidad del lote: un ajuste de inventario no debe convertir por sí mismo producto pendiente, retenido o en retrabajo en producto liberado.
+
+
+---
+
+## 12. Estado de implementación
+
+La capa de permisos ya fue incorporada en el frontend actual mediante:
+
+- `roleKey` por usuario;
+- `ROLE_PERMISSIONS`;
+- `can(permission)`;
+- `requirePermission(permission)`;
+- validaciones sobre las principales acciones mutables.
+
+La liberación ya no permite seleccionar manualmente la autoridad: se deriva del perfil activo. Sólo Emanuelle y Aless pueden ejecutar `quality.release`.
+
+**Importante:** esta capa mejora el prototipo, pero todavía no constituye seguridad real. Los mismos permisos deberán implementarse nuevamente en Supabase Auth/RLS/RPC para que no puedan eludirse desde el navegador.
