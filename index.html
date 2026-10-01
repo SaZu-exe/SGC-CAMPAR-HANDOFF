@@ -1179,11 +1179,12 @@ const ROLE_PERMISSIONS = {
 
 function can(permission){
   if(!currentUser) return false;
+  const permissions = ROLE_PERMISSIONS[currentUser.roleKey] || new Set();
+  if(permissions.has('*')) return true;
   if(permission === 'quality.release'){
     return currentUser.roleKey === 'ops_quality';
   }
-  const permissions = ROLE_PERMISSIONS[currentUser.roleKey] || new Set();
-  return permissions.has('*') || permissions.has(permission);
+  return permissions.has(permission);
 }
 
 function requirePermission(permission, actionLabel = 'realizar esta acción'){
@@ -7266,7 +7267,7 @@ function releaseInspection(id){
     </div>
     <div class="modal-body">
       <div class="notice">
-        La liberación formal está autorizada únicamente para los perfiles de <b>Supervisión Operativa & Calidad</b>.
+        La liberación formal corresponde a <b>Supervisión Operativa & Calidad</b>. Durante la fase de pruebas, <b>IT & Soporte Multifuncional</b> dispone de acceso total para validación del sistema.
       </div>
       <div class="field">
         <label>Autoridad activa</label>
