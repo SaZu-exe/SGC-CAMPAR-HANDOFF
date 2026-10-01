@@ -64,8 +64,8 @@ El flujo de liberación actual menciona a **Gustavo** como autoridad formal junt
 | Alta de producto al catálogo | O | O | — | — | — | O |
 | Editar producto personalizado | O | O | — | — | — | O |
 | Activar / inactivar producto | A/O | O | — | — | — | O |
-| Registrar stock manual | A/O | O | O | — | V | O |
-| Asignar stock existente a OC | O | O | O | — | V | O |
+| Registrar stock manual | A/O | O | O | — | O | O |
+| Asignar stock existente a OC | O | O | O | — | O | O |
 | Consultar inspecciones | V | V | V | V | V | V |
 | Crear inspección | V | O | — | — | O | O |
 | Editar inspección | V | — | — | — | O | O |
@@ -182,7 +182,7 @@ Actualización de etapas, asignaciones operativas y stock de producción; sin au
 Programación y confirmación de entregas, simulación/carga y consulta de lotes liberados.
 
 ### Supervisión Operativa & Calidad
-Rol compartido por Emanuelle y Aless. Incluye seguimiento de producción, inspección, retrabajo, reinspección, gestión de NC y liberación formal de lote.
+Rol compartido por Emanuelle y Aless. Incluye seguimiento de producción, actualización de stock e inventario operativo, inspección, retrabajo, reinspección, gestión de NC y liberación formal de lote.
 
 ### Supervisión de Calidad & Lotes
 Inspección y seguimiento de lotes/NC; sin liberación formal por defecto.
@@ -246,3 +246,19 @@ Registrar las acciones críticas en `audit_events`.
 7. Pendiente cerrar el detalle final de permisos de Cris dentro de Inspecciones & Entregas.
 
 Hasta cerrar estos puntos, esta matriz se considera **BORRADOR CONTROLADO** y no debe utilizarse todavía para bloquear funciones irreversiblemente.
+
+
+---
+
+## 11. Aclaración de permisos de inventario
+
+**Emanuelle y Aless comparten también la autorización para actualizar stock.**
+
+Esto incluye:
+
+- registrar ajustes/ingresos de stock operativo;
+- actualizar cantidades disponibles por aserradero;
+- asignar stock existente a una OC;
+- mantener trazabilidad del motivo, usuario y fecha del ajuste.
+
+La actualización de stock no elimina la necesidad de respetar el estado de calidad del lote: un ajuste de inventario no debe convertir por sí mismo producto pendiente, retenido o en retrabajo en producto liberado.
