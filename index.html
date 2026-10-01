@@ -1208,7 +1208,7 @@ function updateCatalogCounters(){
 function refreshProducts(){
   const custom = (state && Array.isArray(state.customProducts)) ? state.customProducts : [];
   const baseCodes = new Set(BASE_PRODUCTS.map(p => String(p.code).trim()));
-  const merged = [...BASE_PRODUCTS];
+  const merged = BASE_PRODUCTS.map(p => ({...p, active: p.active !== false}));
   custom.forEach(p => {
     if(p && p.code){
       const codeStr = String(p.code).trim();
@@ -1216,7 +1216,8 @@ function refreshProducts(){
         ...p,
         code: codeStr,
         dims: p.dims || `${p.length} × ${p.width} × ${p.height} cm`,
-        custom: true
+        custom: true,
+        active: p.active !== false
       };
       const existingIdx = merged.findIndex(x => String(x.code).trim() === codeStr);
       if(existingIdx >= 0){
@@ -1228,6 +1229,11 @@ function refreshProducts(){
   });
   PRODUCTS = merged;
   updateCatalogCounters();
+}
+
+function selectableProducts(selectedCode = ''){
+  const selected = String(selectedCode || '').trim();
+  return PRODUCTS.filter(p => p.active !== false || String(p.code).trim() === selected);
 }
 
 // ESTADO DE ENTREGAS, CALENDARIO Y SIMULADOR
@@ -1463,7 +1469,7 @@ function product(code){
 function renderProductOptions(selectedCode){
   const selTarget = String(selectedCode || '').trim();
   const families = {};
-  PRODUCTS.forEach(p => {
+  selectableProducts(selTarget).forEach(p => {
     const fam = p.family || 'CAMPAR';
     if(!families[fam]) families[fam] = [];
     families[fam].push(p);
@@ -2620,7 +2626,7 @@ function renderInventoryOptions(){
   if(!sel) return;
   const current=invFilter.product;
   sel.innerHTML=`<option value="all" ${current==='all'?'selected':''}>Todos los productos oficiales</option>`+
-    PRODUCTS.map(p=>`<option value="${p.code}" ${p.code===current?'selected':''}>${p.code} – ${p.name}</option>`).join('');
+    PRODUCTS.map(p=>`<option value="${p.code}" ${p.code===current?'selected':''}>${p.code} – ${p.name}${p.active===false?' [INACTIVO]':''}</option>`).join('');
   const swEl = document.getElementById('inventorySawmill');
   if(swEl) swEl.value = invFilter.sawmill;
   const atpEl = document.getElementById('inventoryAtpStatus');
@@ -7926,6 +7932,8 @@ let currentCatalogFamilyFilter = 'all';
 function showCatalogModal(familyFilter = 'all'){
   currentCatalogFamilyFilter = familyFilter;
   const total = PRODUCTS.length;
+  const activeCount = PRODUCTS.filter(p => p.active !== false).length;
+  const inactiveCount = PRODUCTS.filter(p => p.active === false).length;
   const camparCount = PRODUCTS.filter(p => p.family === 'CAMPAR').length;
   const nestleCount = PRODUCTS.filter(p => p.family === 'NESTLÉ').length;
   const htCount = PRODUCTS.filter(p => p.ht).length;
@@ -7950,6 +7958,8 @@ function showCatalogModal(familyFilter = 'all'){
       <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">
         <div style="display:flex;gap:6px;flex-wrap:wrap">
           <button class="btn small ${familyFilter==='all'?'primary':'soft'}" onclick="showCatalogModal('all')">Todos (${total})</button>
+          <button class="btn small ${familyFilter==='ACTIVE'?'primary':'soft'}" onclick="showCatalogModal('ACTIVE')">Activos (${activeCount})</button>
+          <button class="btn small ${familyFilter==='INACTIVE'?'primary':'soft'}" onclick="showCatalogModal('INACTIVE')">Inactivos (${inactiveCount})</button>
           <button class="btn small ${familyFilter==='CAMPAR'?'primary':'soft'}" onclick="showCatalogModal('CAMPAR')">CAMPAR (${camparCount})</button>
           <button class="btn small ${familyFilter==='NESTLÉ'?'primary':'soft'}" onclick="showCatalogModal('NESTLÉ')">NESTLÉ (${nestleCount})</button>
           ${otherFamilies.map(f => {
@@ -7976,6 +7986,7 @@ function showCatalogModal(familyFilter = 'all'){
               <th>Pzas/Estiba</th>
               <th>Altura Estiba</th>
               <th>Norma HT</th>
+              <th>Estado</th>
               <th style="text-align:center">Acciones</th>
             </tr>
           </thead>
@@ -8004,6 +8015,10 @@ function renderCatalogRows(familyFilter = 'all', query = ''){
   const filtered = PRODUCTS.filter(p => {
     if(familyFilter === 'HT'){
       if(!p.ht) return false;
+    } else if(familyFilter === 'ACTIVE'){
+      if(p.active === false) return false;
+    } else if(familyFilter === 'INACTIVE'){
+      if(p.active !== false) return false;
     } else if(familyFilter !== 'all'){
       if(p.family !== familyFilter) return false;
     }
@@ -8012,7 +8027,7 @@ function renderCatalogRows(familyFilter = 'all', query = ''){
   });
 
   if(!filtered.length){
-    return `<tr><td colspan="10" class="empty" style="text-align:center;padding:24px">No se encontraron productos con ese criterio. <button class="btn small primary" style="background:#047857;margin-left:8px;font-weight:700" onclick="openAddProductModal('catalog')">+ Agregar Nuevo Modelo</button></td></tr>`;
+    return `<tr><td colspan="11" class="empty" style="text-align:center;padding:24px">No se encontraron productos con ese criterio. <button class="btn small primary" style="background:#047857;margin-left:8px;font-weight:700" onclick="openAddProductModal('catalog')">+ Agregar Nuevo Modelo</button></td></tr>`;
   }
 
   return filtered.map(p => {
@@ -8033,11 +8048,14 @@ function renderCatalogRows(familyFilter = 'all', query = ''){
         <td><b>${p.stackPending ? '<span class="pill amber" style="font-size:10px">PENDIENTE</span>' : `${p.pcsPerStack} pz`}</b></td>
         <td>${estHeightM !== '—' ? `<b style="color:${isHeightOk?'var(--green)':'var(--red)'}">${estHeightM} m</b>` : '—'}</td>
         <td>${p.ht ? '<span class="pill" style="font-size:10px;background:#dcfce7;color:#166534">HT Certificado</span>' : '<span style="color:var(--muted);font-size:11px">Estándar</span>'}</td>
+        <td>${p.active === false
+          ? '<span class="pill gray" style="font-size:10px;background:#f1f5f9;color:#64748b">Inactivo</span>'
+          : '<span class="pill green" style="font-size:10px">Activo</span>'}</td>
         <td style="white-space:nowrap;text-align:center">
-          <button class="btn small soft" style="font-size:11px;padding:3px 7px" onclick="closeModal();setSimulatorProduct('${esc(p.code)}')" title="Cargar este modelo en la plana del trailer">Simular Carga</button>
+          ${p.active !== false ? `<button class="btn small soft" style="font-size:11px;padding:3px 7px" onclick="closeModal();setSimulatorProduct('${esc(p.code)}')" title="Cargar este modelo en la plana del trailer">Simular Carga</button>` : ''}
           ${p.custom ? `
             <button class="btn small soft" style="font-size:11px;padding:3px 7px;color:#2563eb;margin-left:3px" onclick="openEditProductModal('${esc(p.code)}')" title="Editar especificaciones">Editar</button>
-            <button class="btn small soft" style="font-size:11px;padding:3px 7px;color:#dc2626;margin-left:3px" onclick="confirmDeleteCustomProduct('${esc(p.code)}')" title="Eliminar del catálogo">✕</button>
+            <button class="btn small soft" style="font-size:11px;padding:3px 7px;color:${p.active === false ? '#047857' : '#b45309'};margin-left:3px" onclick="toggleCustomProductActive('${esc(p.code)}')" title="${p.active === false ? 'Reactivar producto' : 'Desactivar producto'}">${p.active === false ? 'Reactivar' : 'Desactivar'}</button>
           ` : ''}
         </td>
       </tr>
@@ -8256,6 +8274,7 @@ async function saveProductToCatalog(returnContext){
     spec,
     dims: `${length} × ${width} × ${height} cm`,
     custom: true,
+    active: true,
     createdAt: nowStr()
   };
 
@@ -8450,6 +8469,7 @@ async function saveEditedProduct(code){
 
   if(!state.customProducts) state.customProducts = [];
   const idx = state.customProducts.findIndex(p => String(p.code).trim() === cleanCode);
+  const previousItem = idx >= 0 ? state.customProducts[idx] : null;
   const updatedItem = {
     code: cleanCode,
     name,
@@ -8462,6 +8482,8 @@ async function saveEditedProduct(code){
     spec,
     dims: `${length} × ${width} × ${height} cm`,
     custom: true,
+    active: previousItem ? previousItem.active !== false : true,
+    createdAt: previousItem?.createdAt || nowStr(),
     updatedAt: nowStr()
   };
 
@@ -8489,6 +8511,41 @@ async function saveEditedProduct(code){
   }
   showCatalogModal('all');
   showKanbanToast(`✓ Producto ${cleanCode} actualizado.`);
+}
+
+async function toggleCustomProductActive(code){
+  const cleanCode = String(code || '').trim();
+  if(!state.customProducts) state.customProducts = [];
+  const idx = state.customProducts.findIndex(p => String(p.code).trim() === cleanCode);
+  if(idx < 0) return alert('Sólo los productos agregados manualmente pueden activarse o desactivarse desde este catálogo.');
+
+  const item = state.customProducts[idx];
+  const nextActive = item.active === false;
+  item.active = nextActive;
+  item.updatedAt = nowStr();
+
+  if(!state.history) state.history = [];
+  state.history.unshift(h(
+    'Catálogo',
+    `Producto ${cleanCode} ${nextActive ? 'reactivado' : 'desactivado'} en el Catálogo Maestro.`,
+    getActiveUserName()
+  ));
+
+  refreshProducts();
+  await save();
+
+  updateCatalogCounters();
+  renderInventoryOptions();
+  const prodSel = document.getElementById('prodFilterProduct');
+  if(prodSel){
+    prodSel.dataset.populated = 'false';
+    populateProdFilterProducts(true);
+  }
+  if(document.getElementById('inventoryViewAtp') && document.getElementById('inventoryViewAtp').style.display !== 'none'){
+    renderInventory();
+  }
+  showCatalogModal(nextActive ? 'ACTIVE' : 'INACTIVE');
+  showKanbanToast(`Producto ${cleanCode} ${nextActive ? 'reactivado' : 'desactivado'}.`);
 }
 
 function confirmDeleteCustomProduct(code){
