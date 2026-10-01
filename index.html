@@ -1335,44 +1335,46 @@ function getOrderDetailedStatus(o){
   }
   const lines=o.lines||[];
   const totalQty=lines.reduce((s,l)=>s+(+l.qty||0),0);
+  const commercialCommitment=qtyCommercialCommitmentOrder(o.id);
   const delivered=qtyDeliveredOrder(o.id);
-  
-  if((totalQty>0 && delivered>=totalQty) || o.status==='Cerrada' || o.status==='Completada'){
-    return {code:'completada',label:'Completada',pillClass:'',style:'background:#eef7f0;color:#286f3b;border:1px solid #bce2c4;font-weight:700',desc:`${delivered}/${totalQty} pzas entregadas a planta`};
+  const linkedOut=Math.max(0,totalQty-commercialCommitment);
+
+  if(totalQty>0 && commercialCommitment===0 && linkedOut>0){
+    return {code:'reclasificada',label:'Reclasificada',pillClass:'soft',style:'background:#f5f3ff;color:#6d28d9;border:1px solid #ddd6fe;font-weight:800',desc:`${linkedOut} pzas trasladadas comercialmente a OC vinculada`};
   }
-  
+  if((commercialCommitment>0 && delivered>=commercialCommitment) || o.status==='Cerrada' || o.status==='Completada'){
+    return {code:'completada',label:'Completada',pillClass:'',style:'background:#eef7f0;color:#286f3b;border:1px solid #bce2c4;font-weight:700',desc:`${delivered}/${commercialCommitment} pzas cumplidas bajo esta OC`};
+  }
+
   const as=(state.allocations||[]).filter(a=>a.orderId===o.id);
   if(!as.length){
+    if(qtyProductionDemandOrder(o.id)===0 && commercialCommitment>0 && delivered>=commercialCommitment){
+      return {code:'completada',label:'Completada',pillClass:'',style:'background:#eef7f0;color:#286f3b;border:1px solid #bce2c4;font-weight:700',desc:`${delivered}/${commercialCommitment} pzas cubiertas desde OC de origen`};
+    }
     return {code:'por_asignar',label:'Por asignar',pillClass:'gray',style:'background:#f0f1f3;color:#5f6672;border:1px solid #d5d8de;font-weight:700',desc:'Sin aserradero asignado aún'};
   }
-  
+
   const lots=(state.lots||[]).filter(l=>l.orderId===o.id);
   const totalAllocated=as.reduce((s,a)=>s+(+a.qty||0),0);
-
-  // Check if ready for delivery: lot(s) released by quality
   const releasedLots=lots.filter(l=>l.quality==='Liberado'||l.quality==='Seleccionado para entrega');
   const releasedQty=releasedLots.reduce((s,l)=>s+l.qty,0);
   if(releasedLots.length>0 && (releasedQty>=totalAllocated || as.every(a=>(a.stages?.stock_entrega||0)>0))){
     return {code:'lista_entrega',label:'Listo para entrega',pillClass:'',style:'background:#dcfce7;color:#15803d;border:1px solid #86efac;font-weight:800',desc:'Inspección completada y lote liberado para planta'};
   }
-  
-  // Check if reached estufando or por_limpiar:
+
   const hasEstufandoOrLimpiar=as.some(a=>((a.stages?.estufando)||0)>0 || ((a.stages?.por_limpiar)||0)>0);
   const hasLotsInStage=lots.some(l=>['estufando','por_limpiar'].includes(l.stage));
   if(hasEstufandoOrLimpiar || hasLotsInStage){
     return {code:'lista_inspeccion',label:'Lista para inspección',pillClass:'amber',style:'background:#fef3c7;color:#92400e;border:1px solid #fcd34d;font-weight:800',desc:'Alcanzó etapa de estufando / por limpiar'};
   }
-  
-  // Check if in production (advancing through corte / armado / por_estufa)
+
   const advancedPastCorte=as.some(a=>((a.stages?.armado)||0)>0 || ((a.stages?.por_estufa)||0)>0 || ((a.stages?.stock_entrega)||0)>0);
   if(advancedPastCorte){
     return {code:'en_produccion',label:'En producción',pillClass:'',style:'background:#e0f2fe;color:#0369a1;border:1px solid #bae6fd;font-weight:700',desc:'Avance activo en armado / estufa'};
   }
-  
   if(totalAllocated>0){
     return {code:'asignada',label:'Asignada',pillClass:'soft',style:'background:#f1f5f9;color:#334155;border:1px solid #cbd5e1;font-weight:700',desc:'Asignada a aserraderos en corte'};
   }
-  
   return {code:'por_asignar',label:'Por asignar',pillClass:'gray',style:'background:#f0f1f3;color:#5f6672;border:1px solid #d5d8de;font-weight:700',desc:'Pendiente de asignación'};
 }
 const pageMeta={
@@ -1643,7 +1645,7 @@ function renderHome(){
 
   // 1. Executive Real-time KPIs
   const allOrders=(state.orders||[]).filter(o => !o.isDeleted && o.status !== 'Eliminada');
-  const activeOrders=allOrders.filter(o=>!o.isArchived && o.status !== 'Archivada' && o.status!=='Cerrada'&&getOrderDetailedStatus(o).code!=='completada');
+  const activeOrders=allOrders.filter(o=>!o.isArchived && o.status !== 'Archivada' && o.status!=='Cerrada'&&!['completada','reclasificada'].includes(getOrderDetailedStatus(o).code));
   const totalPiecesDemand=activeOrders.reduce((sum,o)=>sum+qtyProductionDemandOrder(o.id),0);
   const totalPiecesDelivered=(state.deliveries||[]).filter(d=>d.status==='Entregada'&&isOrderActive(d.orderId)).reduce((s,d)=>s+d.qty,0);
 
@@ -1808,13 +1810,13 @@ function renderOrders(){
 
   // Global KPIs calculation
   const nonDeletedOrders = (state.orders||[]).filter(o => !o.isDeleted && o.status !== 'Eliminada');
-  const activeOrders = nonDeletedOrders.filter(o => !o.isArchived && o.status !== 'Archivada' && o.status !== 'Cerrada' && getOrderDetailedStatus(o).code !== 'completada');
-  const totalPiecesDemand = activeOrders.reduce((sum, o) => sum + (o.lines||[]).reduce((ls, l) => ls + (+l.qty||0), 0), 0);
+  const activeOrders = nonDeletedOrders.filter(o => !o.isArchived && o.status !== 'Archivada' && o.status !== 'Cerrada' && !['completada','reclasificada'].includes(getOrderDetailedStatus(o).code));
+  const totalPiecesDemand = activeOrders.reduce((sum, o) => sum + qtyCommercialCommitmentOrder(o.id), 0);
   const totalPiecesDelivered = activeOrders.reduce((sum, o) => sum + qtyDeliveredOrder(o.id), 0);
   const unassignedOrdersCount = activeOrders.filter(o => {
-    const totalQ = (o.lines||[]).reduce((ls, l) => ls + (+l.qty||0), 0);
+    const productionQ = qtyProductionDemandOrder(o.id);
     const allocQ = (state.allocations||[]).filter(a => a.orderId === o.id).reduce((as, a) => as + (+a.qty||0), 0);
-    return allocQ < totalQ;
+    return allocQ < productionQ;
   }).length;
   const overallPct = totalPiecesDemand > 0 ? Math.min(100, Math.round((totalPiecesDelivered / totalPiecesDemand) * 100)) : 100;
 
@@ -1881,14 +1883,15 @@ function renderOrders(){
   body.innerHTML=list.map(o=>{
     const lines=o.lines||[];
     const totalQty=lines.reduce((s,l)=>s+(+l.qty||0),0);
+    const commercialCommitment=qtyCommercialCommitmentOrder(o.id);
     const delivered=qtyDeliveredOrder(o.id);
-    const delivPct=totalQty > 0 ? Math.min(100, Math.round((delivered / totalQty) * 100)) : 0;
+    const delivPct=commercialCommitment > 0 ? Math.min(100, Math.round((delivered / commercialCommitment) * 100)) : (totalQty>0?100:0);
 
     const as=state.allocations.filter(a=>a.orderId===o.id);
     const c=as.filter(a=>a.sawmill==='Cosme').reduce((s,a)=>s+(+a.qty||0),0);
     const d=as.filter(a=>a.sawmill==='Duma').reduce((s,a)=>s+(+a.qty||0),0);
     const totalAlloc = c + d;
-    const unallocated = Math.max(0, totalQty - totalAlloc);
+    const unallocated = Math.max(0, qtyProductionDemandOrder(o.id) - totalAlloc);
 
     const linesHtml=lines.map(l=>{
       const p=product(l.productCode);
@@ -2831,14 +2834,11 @@ function getProductAtpData(p, swFilter = 'all'){
     (o.lines || []).forEach(l => {
       if(l.productCode === p.code){
         const lQty = +l.qty || 0;
-        const deliveredToPlant = (state.deliveries || [])
-          .filter(d => d.orderId === o.id && d.status === 'Entregada')
-          .reduce((sum, d) => sum + (+d.qty || 0), 0);
+        const lineCommitment = qtyCommercialCommitmentLine(o.id,l.id);
+        const lineDelivered = Math.min(lineCommitment, qtyDeliveredLine(o.id,l.id));
+        const linePending = Math.max(0, lineCommitment - lineDelivered);
 
-        const lineDelivered = Math.min(lQty, deliveredToPlant);
-        const linePending = Math.max(0, lQty - lineDelivered);
-
-        totalCommitted += lQty;
+        totalCommitted += lineCommitment;
         totalDelivered += lineDelivered;
 
         if(linePending > 0){
@@ -2851,7 +2851,7 @@ function getProductAtpData(p, swFilter = 'all'){
             folio: o.folio || 'FOL-????',
             plant: o.plant || 'Planta 1',
             lineId: l.id,
-            requestedQty: lQty,
+            requestedQty: lineCommitment,
             deliveredQty: lineDelivered,
             pendingQty: linePending,
             due: l.due,
@@ -3409,6 +3409,14 @@ function qtyProductionDemandOrder(orderId){
   const o=orderById(orderId);
   return o?(o.lines||[]).reduce((s,l)=>s+qtyProductionDemandLine(orderId,l.id),0):0;
 }
+function qtyCommercialCommitmentLine(orderId,lineId){
+  const l=lineFor(orderId,lineId);
+  return l?Math.max(0,(+l.qty||0)-qtyReclassifiedOutLine(orderId,lineId)):0;
+}
+function qtyCommercialCommitmentOrder(orderId){
+  const o=orderById(orderId);
+  return o?(o.lines||[]).reduce((s,l)=>s+qtyCommercialCommitmentLine(orderId,l.id),0):0;
+}
 function linkedReceivingOrdersForSource(orderId){
   return orderLinks().filter(x=>x.sourceOrderId===orderId&&x.status!=='Anulado');
 }
@@ -3484,8 +3492,18 @@ function saveReceivingOrderLink(sourceOrderId){
   let targetOrder=orderById(targetOrderId),targetLine=null;
   const p=product(sourceLine.productCode),user=getActiveUserName();
   if(targetOrder){
-    targetLine=(targetOrder.lines||[]).find(l=>l.productCode===sourceLine.productCode&&Math.max(0,(+l.qty||0)-qtyReclassifiedInLine(targetOrder.id,l.id))>=qty);
-    if(!targetLine){const nextId='P'+String((targetOrder.lines||[]).length+1);targetLine={id:nextId,productCode:sourceLine.productCode,qty,due:sourceLine.due||'',priority:sourceLine.priority||'Alta',linkedOnly:true};if(!targetOrder.lines)targetOrder.lines=[];targetOrder.lines.push(targetLine);}
+    const sameProductLines=(targetOrder.lines||[]).filter(l=>l.productCode===sourceLine.productCode);
+    targetLine=sameProductLines.find(l=>Math.max(0,(+l.qty||0)-qtyDeliveredLine(targetOrder.id,l.id))>=qty);
+    if(!targetLine){
+      if(sameProductLines.length){
+        const remaining=sameProductLines.reduce((sum,l)=>sum+Math.max(0,(+l.qty||0)-qtyDeliveredLine(targetOrder.id,l.id)),0);
+        return fail(`La OC ${targetOrder.id} ya tiene el producto ${sourceLine.productCode}, pero sólo dispone de ${remaining} piezas pendientes para vincular.`);
+      }
+      const nextId='P'+String((targetOrder.lines||[]).length+1);
+      targetLine={id:nextId,productCode:sourceLine.productCode,qty,due:sourceLine.due||'',priority:sourceLine.priority||'Alta',linkedOnly:true};
+      if(!targetOrder.lines)targetOrder.lines=[];
+      targetOrder.lines.push(targetLine);
+    }
   }else{
     state.orderSeq=(state.orderSeq||state.orders.length)+1;
     targetLine={id:'P1',productCode:sourceLine.productCode,qty,due:sourceLine.due||'',priority:sourceLine.priority||'Alta',linkedOnly:true};
@@ -3496,7 +3514,7 @@ function saveReceivingOrderLink(sourceOrderId){
   orderLinks().unshift({id:linkId,sourceOrderId,sourceLineId,targetOrderId:targetOrder.id,targetLineId:targetLine.id,productCode:sourceLine.productCode,qty,deliveryId:deliveryId||null,type,reason,status:'Activo',createdAt:nowStr(),createdBy:user});
   if(!sourceOrder.history)sourceOrder.history=[];sourceOrder.history.unshift(h('Reclasificación de OC',`${qty} pzas de ${sourceLineId} (${p.code}) vinculadas a OC ${targetOrder.id} / ${targetLine.id}. ${deliveryId?'Remisión '+deliveryId+'. ':''}Motivo: ${reason}`,user));
   if(!targetOrder.history)targetOrder.history=[];targetOrder.history.unshift(h('Vínculo con OC de origen',`${qty} pzas recibidas desde OC ${sourceOrder.id} / ${sourceLineId}. Vínculo ${linkId}. ${deliveryId?'Remisión '+deliveryId+'. ':''}${reason}`,user));
-  const sourceTotal=(sourceOrder.lines||[]).reduce((s,l)=>s+(+l.qty||0),0);if(qtyDeliveredOrder(sourceOrder.id)<sourceTotal&&sourceOrder.status==='Cerrada')sourceOrder.status='Activa';
+  const sourceCommitment=qtyCommercialCommitmentOrder(sourceOrder.id);if(qtyDeliveredOrder(sourceOrder.id)<sourceCommitment&&sourceOrder.status==='Cerrada')sourceOrder.status='Activa';
   const targetTotal=(targetOrder.lines||[]).reduce((s,l)=>s+(+l.qty||0),0);if(targetTotal>0&&qtyDeliveredOrder(targetOrder.id)>=targetTotal)targetOrder.status='Cerrada';
   save();render();closeModal();openOrder(targetOrder.id);showKanbanToast(`✓ ${qty} piezas vinculadas: OC ${sourceOrder.id} → OC ${targetOrder.id}`);
 }
@@ -6160,6 +6178,7 @@ function openOrder(id){
   const safeId = esc(o.id).replace(/'/g, "\\'");
   const delivered = qtyDeliveredOrder(o.id);
   const totalQty = (o.lines || []).reduce((s,l)=>s+(+l.qty||0), 0);
+  const commercialCommitment = qtyCommercialCommitmentOrder(o.id);
   const productionDemand = qtyProductionDemandOrder(o.id);
   const as = (state.allocations || []).filter(a => a.orderId === o.id);
   const totalAlloc = as.reduce((s,a)=>s+(+a.qty||0), 0);
@@ -6195,7 +6214,7 @@ function openOrder(id){
         <div class="detail"><small>No. OC Comercial</small><b>${esc(o.id)}</b></div>
         <div class="detail"><small>Planta Destino</small><b>${esc(o.plant)}</b></div>
         <div class="detail"><small>Volumen Total</small><b>${totalQty} piezas</b></div>
-        <div class="detail"><small>Entregado a Planta</small><b style="color:var(--green)">${delivered} / ${totalQty} pzas</b></div>
+        <div class="detail"><small>Cumplimiento bajo esta OC</small><b style="color:var(--green)">${delivered} / ${commercialCommitment} pzas</b></div>
         <div class="detail"><small>Estatus Operativo</small><b><span class="pill ${st.pillClass}" style="${st.style}">${st.label}</span></b></div>
         <div class="detail"><small>Balance Asignación</small><b style="color:${unallocated>0?'var(--amber)':'var(--green)'}">${unallocated > 0 ? `${unallocated} pzas pendientes` : '✓ Demanda cubierta'}</b></div>
       </div>
@@ -7492,7 +7511,7 @@ function confirmDelivery(id){
     a.history.unshift(h('Salida por entrega', `${d.qty} piezas entregadas por remisión ${id}.`, user));
   }
   if(o){
-    const totalOrderQty = (o.lines || []).reduce((s, li) => s + (+li.qty || 0), 0);
+    const totalOrderQty = qtyCommercialCommitmentOrder(o.id);
     const deliveredOrderTotal = qtyDeliveredOrder(o.id);
     if(deliveredOrderTotal >= totalOrderQty && totalOrderQty > 0){
       o.status = 'Cerrada';
