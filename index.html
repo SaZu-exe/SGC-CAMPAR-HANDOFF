@@ -3399,6 +3399,11 @@ function qtyReclassifiedOutLine(orderId,lineId){
 function qtyReclassifiedInLine(orderId,lineId){
   return orderLinks().filter(x=>x.targetOrderId===orderId&&x.targetLineId===lineId&&x.status!=='Anulado').reduce((s,x)=>s+(+x.qty||0),0);
 }
+
+function qtyLinkableReceivingLine(orderId,lineId){
+  const l=lineFor(orderId,lineId);
+  return l?Math.max(0,(+l.qty||0)-qtyReclassifiedOutLine(orderId,lineId)):0;
+}
 function qtyDeliveredLine(orderId,lineId){
   return Math.max(0,qtyPhysicalDeliveredLine(orderId,lineId)-qtyReclassifiedOutLine(orderId,lineId))+qtyReclassifiedInLine(orderId,lineId);
 }
@@ -3433,6 +3438,17 @@ function getDeliveredRemissionsForLine(orderId,lineId){
     return !!(lot&&lot.lineId&&String(lot.lineId).trim().toLowerCase()===String(lineId).trim().toLowerCase());
   });
 }
+
+function getRemissionsForLine(orderId,lineId){
+  const target=String(orderId||'').trim().toLowerCase();
+  return (state.deliveries||[]).filter(d=>{
+    if(String(d.orderId||'').trim().toLowerCase()!==target) return false;
+    if(d.status==='Cancelada') return false;
+    if(d.lineId&&lineId&&String(d.lineId).trim().toLowerCase()===String(lineId).trim().toLowerCase()) return true;
+    const lot=lotById(d.lotId);
+    return !!(lot&&lot.lineId&&String(lot.lineId).trim().toLowerCase()===String(lineId).trim().toLowerCase());
+  });
+}
 function qtyDeliveryAlreadyLinked(deliveryId){
   return orderLinks().filter(x=>x.deliveryId===deliveryId&&x.status!=='Anulado').reduce((s,x)=>s+(+x.qty||0),0);
 }
@@ -3441,11 +3457,11 @@ function openLinkReceivingOrder(sourceOrderId){
   if(!requirePermission('orders.link_receipt','vincular una OC de recepción')) return;
   const o=orderById(sourceOrderId);
   if(!o) return alert('Orden de origen no encontrada.');
-  const eligible=(o.lines||[]).filter(l=>qtyPhysicalDeliveredLine(o.id,l.id)-qtyReclassifiedOutLine(o.id,l.id)>0);
-  if(!eligible.length) return alert('No hay piezas entregadas disponibles para reclasificar a otra OC.');
+  const eligible=(o.lines||[]).filter(l=>qtyLinkableReceivingLine(o.id,l.id)>0);
+  if(!eligible.length) return alert('No hay cantidad disponible en esta OC para vincular a otra OC de recepción.');
   const first=eligible[0];
-  const rems=getDeliveredRemissionsForLine(o.id,first.id);
-  const available=Math.max(0,qtyPhysicalDeliveredLine(o.id,first.id)-qtyReclassifiedOutLine(o.id,first.id));
+  const rems=getRemissionsForLine(o.id,first.id);
+  const available=qtyLinkableReceivingLine(o.id,first.id);
   modal(`
     <div class="modal-head">
       <div>
@@ -3455,10 +3471,10 @@ function openLinkReceivingOrder(sourceOrderId){
       <button class="btn secondary" onclick="openOrder('${esc(o.id).replace(/'/g,"\\'")}')">Volver</button>
     </div>
     <div class="modal-body">
-      <div class="notice">La OC original conservará producción, lote e inspección. La nueva OC quedará ligada como <b>OC de recepción en planta</b> y no generará producción adicional por las piezas vinculadas.</div>
+      <div class="notice">La OC original conservará producción, lote e inspección. La nueva OC quedará ligada como <b>OC de recepción en planta</b> y las piezas vinculadas no generarán producción adicional.</div>
       <div class="form-grid" style="margin-top:10px">
-        <div class="field"><label>Partida de origen</label><select id="link_source_line" onchange="updateReceivingOrderLinkOptions('${esc(o.id).replace(/'/g,"\\'")}')">${eligible.map(l=>{const p=product(l.productCode);const av=Math.max(0,qtyPhysicalDeliveredLine(o.id,l.id)-qtyReclassifiedOutLine(o.id,l.id));return `<option value="${esc(l.id)}">${esc(l.id)} · ${esc(p.code)} · ${esc(p.name)} · ${av} pzas disponibles</option>`;}).join('')}</select></div>
-        <div class="field"><label>Remisión / entrega relacionada</label><select id="link_delivery">${rems.map(d=>{const av=Math.max(0,(+d.qty||0)-qtyDeliveryAlreadyLinked(d.id));return `<option value="${esc(d.id)}">${esc(d.id)} · ${d.qty} pzas · disponibles ${av}</option>`;}).join('')}</select></div>
+        <div class="field"><label>Partida de origen</label><select id="link_source_line" onchange="updateReceivingOrderLinkOptions('${esc(o.id).replace(/'/g,"\\'")}')">${eligible.map(l=>{const p=product(l.productCode);const av=qtyLinkableReceivingLine(o.id,l.id);return `<option value="${esc(l.id)}">${esc(l.id)} · ${esc(p.code)} · ${esc(p.name)} · ${av} pzas disponibles</option>`;}).join('')}</select></div>
+        <div class="field"><label>Remisión / entrega relacionada (opcional)</label><select id="link_delivery"><option value="">Sin remisión asociada todavía</option>${rems.map(d=>{const av=Math.max(0,(+d.qty||0)-qtyDeliveryAlreadyLinked(d.id));return `<option value="${esc(d.id)}">${esc(d.id)} · ${esc(d.status)} · ${d.qty} pzas · disponibles ${av}</option>`;}).join('')}</select></div>
         <div class="field"><label>Nueva OC de planta / recepción *</label><input type="text" id="link_target_order" placeholder="Ej. 450099" style="font-weight:700"></div>
         <div class="field"><label>Cantidad a vincular *</label><input type="number" id="link_qty" min="1" max="${available}" value="${available}" style="font-weight:700"></div>
         <div class="field"><label>Planta de recepción</label><select id="link_target_plant"><option ${o.plant==='Planta 1'?'selected':''}>Planta 1</option><option ${o.plant==='Planta 2'?'selected':''}>Planta 2</option><option ${o.plant==='Planta 3'?'selected':''}>Planta 3</option></select></div>
@@ -3472,9 +3488,9 @@ function openLinkReceivingOrder(sourceOrderId){
 }
 function updateReceivingOrderLinkOptions(sourceOrderId){
   const lineId=val('link_source_line'),remSel=document.getElementById('link_delivery'),qtyInp=document.getElementById('link_qty');
-  const available=Math.max(0,qtyPhysicalDeliveredLine(sourceOrderId,lineId)-qtyReclassifiedOutLine(sourceOrderId,lineId));
-  const rems=getDeliveredRemissionsForLine(sourceOrderId,lineId);
-  if(remSel) remSel.innerHTML=rems.map(d=>{const av=Math.max(0,(+d.qty||0)-qtyDeliveryAlreadyLinked(d.id));return `<option value="${esc(d.id)}">${esc(d.id)} · ${d.qty} pzas · disponibles ${av}</option>`;}).join('');
+  const available=qtyLinkableReceivingLine(sourceOrderId,lineId);
+  const rems=getRemissionsForLine(sourceOrderId,lineId);
+  if(remSel) remSel.innerHTML='<option value="">Sin remisión asociada todavía</option>'+rems.map(d=>{const av=Math.max(0,(+d.qty||0)-qtyDeliveryAlreadyLinked(d.id));return `<option value="${esc(d.id)}">${esc(d.id)} · ${esc(d.status)} · ${d.qty} pzas · disponibles ${av}</option>`;}).join('');
   if(qtyInp){qtyInp.max=available;qtyInp.value=available;}
 }
 function saveReceivingOrderLink(sourceOrderId){
@@ -3487,8 +3503,8 @@ function saveReceivingOrderLink(sourceOrderId){
   if(!sourceLine) return fail('Selecciona una partida de origen válida.');
   if(!targetOrderId) return fail('Ingresa el número de la nueva OC de planta.');
   if(targetOrderId.toLowerCase()===sourceOrderId.toLowerCase()) return fail('La OC de recepción debe ser distinta de la OC de origen.');
-  const lineAvailable=Math.max(0,qtyPhysicalDeliveredLine(sourceOrderId,sourceLineId)-qtyReclassifiedOutLine(sourceOrderId,sourceLineId));
-  if(qty<=0||qty>lineAvailable) return fail(`La cantidad debe estar entre 1 y ${lineAvailable} piezas entregadas disponibles.`);
+  const lineAvailable=qtyLinkableReceivingLine(sourceOrderId,sourceLineId);
+  if(qty<=0||qty>lineAvailable) return fail(`La cantidad debe estar entre 1 y ${lineAvailable} piezas disponibles de la partida de origen.`);
   if(deliveryId){const d=(state.deliveries||[]).find(x=>x.id===deliveryId);if(!d)return fail('La remisión seleccionada no existe.');const av=Math.max(0,(+d.qty||0)-qtyDeliveryAlreadyLinked(deliveryId));if(qty>av)return fail(`La remisión ${deliveryId} sólo tiene ${av} piezas disponibles para vincular.`);}
   let targetOrder=orderById(targetOrderId),targetLine=null;
   const p=product(sourceLine.productCode),user=getActiveUserName();
@@ -6289,7 +6305,7 @@ function openOrder(id){
       <button class="btn small" style="background:#fef3c7;color:#92400e;border:1px solid #fcd34d;font-weight:800;display:inline-flex;align-items:center;gap:4px" onclick="exportOrderPdf('${safeId}')" title="Exportar expediente oficial de la OC a PDF">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg> Exportar PDF
       </button>
-      ${can('orders.link_receipt') && (o.lines||[]).some(l=>qtyPhysicalDeliveredLine(o.id,l.id)-qtyReclassifiedOutLine(o.id,l.id)>0)?`<button class="btn small soft" style="color:#7c3aed;border-color:#c4b5fd" onclick="openLinkReceivingOrder('${safeId}')">Vincular OC de recepción</button>`:''}
+      ${can('orders.link_receipt') && (o.lines||[]).some(l=>qtyLinkableReceivingLine(o.id,l.id)>0)?`<button class="btn small soft" style="color:#7c3aed;border-color:#c4b5fd" onclick="openLinkReceivingOrder('${safeId}')" title="Registrar una nueva OC de planta vinculada a esta orden sin duplicar producción">Vincular OC de recepción</button>`:''}
       <button class="btn small soft" onclick="editOrderNumber('${safeId}')">Editar No. OC</button>
       <button class="btn small soft" onclick="expandOrder('${safeId}')">Ampliar OC</button>
       ${unallocated > 0 && !o.isDeleted && !o.isArchived ? `<button class="btn small primary" style="background:#286f3b" onclick="assignOrder('${safeId}')">Asignar a Aserradero</button>` : ''}
