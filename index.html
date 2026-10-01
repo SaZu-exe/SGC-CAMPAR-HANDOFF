@@ -5431,8 +5431,6 @@ function renderNewOrderModal(){
                 <select id="line_prod_${idx}" onchange="newOrderDraft.lines[${idx}].productCode=this.value;updateNewOrderProdPreview(${idx});" style="font-weight:600">
                   ${renderProductOptions(l.productCode)}
                 </select>
-                  ${renderProductOptions(l.productCode)}
-                </select>
                 <div id="line_prod_preview_${idx}" style="font-size:11px;color:var(--navy);font-weight:700;margin-top:4px;background:#fff;padding:4px 8px;border-radius:6px;border:1px solid #cbd5e1">
                   <b>${esc(p.code)}</b> · ${esc(p.name)} (${esc(p.dims)}) ${p.ht ? '<span style="color:#286f3b;font-weight:bold">[HT Certificado]</span>' : ''}
                 </div>
