@@ -1,0 +1,7 @@
+{
+  "name": "CAMPAR SGC Digital v0.9",
+  "description": "Sistema de Gestión de la Calidad, trazabilidad operativa, producción, inventario, inspecciones y entregas para CAMPAR.",
+  "capabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
