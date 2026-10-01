@@ -5391,15 +5391,14 @@ function selectNewOrderProduct(idx, code){
   if(textEl) textEl.textContent = `${p.code} – ${p.name} (${p.dims} · ${p.pcsPerStack} pz/estiba)${p.ht ? ' [HT]' : ''}`;
   if(results) results.style.display = 'none';
   if(search) search.value = '';
-  updateNewOrderProdPreview(idx);
 }
 
 function updateNewOrderProdPreview(idx){
-  const el = document.getElementById(`line_prod_preview_${idx}`);
   const hidden = document.getElementById(`line_prod_${idx}`);
-  if(!el || !hidden) return;
+  const textEl = document.getElementById(`line_prod_text_${idx}`);
+  if(!hidden || !textEl) return;
   const p = product(hidden.value);
-  el.innerHTML = `<b>${esc(p.code)}</b> · ${esc(p.name)} (${esc(p.dims)}) ${p.ht ? '<span style="color:#286f3b;font-weight:bold">[HT Certificado]</span>' : ''}`;
+  textEl.textContent = `${p.code} – ${p.name} (${p.dims} · ${p.pcsPerStack} pz/estiba)${p.ht ? ' [HT]' : ''}`;
 }
 
 function renderNewOrderModal(){
@@ -5458,9 +5457,6 @@ function renderNewOrderModal(){
                   <span style="font-size:12px;color:var(--muted);margin-left:10px">⌄</span>
                 </button>
                 <div id="line_prod_results_${idx}" style="display:none;max-height:230px;overflow-y:auto;background:#fff;border:1px solid var(--line);border-radius:12px;margin-top:4px;box-shadow:var(--shadow);padding:5px;position:relative;z-index:5"></div>
-                <div id="line_prod_preview_${idx}" style="font-size:11px;color:var(--navy);font-weight:700;margin-top:4px;background:#fff;padding:4px 8px;border-radius:6px;border:1px solid #cbd5e1">
-                  <b>${esc(p.code)}</b> · ${esc(p.name)} (${esc(p.dims)}) ${p.ht ? '<span style="color:#286f3b;font-weight:bold">[HT Certificado]</span>' : ''}
-                </div>
               </div>
               <div class="field">
                 <label>Cantidad (piezas)</label>
@@ -5682,9 +5678,6 @@ function renderEditOrderModal(){
                     <span style="font-size:12px;color:var(--muted);margin-left:10px">⌄</span>
                   </button>
                   <div id="edit_line_prod_results_${idx}" style="display:none;max-height:230px;overflow-y:auto;background:#fff;border:1px solid var(--line);border-radius:12px;margin-top:4px;box-shadow:var(--shadow);padding:5px;position:relative;z-index:5"></div>
-                  <div id="edit_line_prod_preview_${idx}" style="font-size:11px;color:var(--navy);font-weight:700;margin-top:4px;background:#fff;padding:4px 8px;border-radius:6px;border:1px solid #cbd5e1">
-                    <b>${esc(p.code)}</b> · ${esc(p.name)} (${esc(p.dims)}) ${p.ht ? '<span style="color:#286f3b;font-weight:bold">[HT Certificado]</span>' : ''}
-                  </div>
                 </div>
 
                 <div class="field">
@@ -5761,15 +5754,14 @@ function selectEditOrderProduct(idx, code){
   if(textEl) textEl.textContent = `${p.code} – ${p.name} (${p.dims} · ${p.pcsPerStack} pz/estiba)${p.ht ? ' [HT]' : ''}`;
   if(results) results.style.display = 'none';
   if(search) search.value = '';
-  updateEditOrderProdPreview(idx);
 }
 
 function updateEditOrderProdPreview(idx){
-  const el = document.getElementById(`edit_line_prod_preview_${idx}`);
   const hidden = document.getElementById(`edit_line_prod_${idx}`);
-  if(!el || !hidden) return;
+  const textEl = document.getElementById(`edit_line_prod_text_${idx}`);
+  if(!hidden || !textEl) return;
   const p = product(hidden.value);
-  el.innerHTML = `<b>${esc(p.code)}</b> · ${esc(p.name)} (${esc(p.dims)}) ${p.ht ? '<span style="color:#286f3b;font-weight:bold">[HT Certificado]</span>' : ''}`;
+  textEl.textContent = `${p.code} – ${p.name} (${p.dims} · ${p.pcsPerStack} pz/estiba)${p.ht ? ' [HT]' : ''}`;
 }
 
 
