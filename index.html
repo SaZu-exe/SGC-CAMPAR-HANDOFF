@@ -1142,7 +1142,7 @@ const USERS = [
 
 const ROLE_PERMISSIONS = {
   director: new Set([
-    'orders.read','orders.create','orders.update','orders.expand','orders.reopen','orders.archive','orders.soft_delete','orders.assign',
+    'orders.read','orders.create','orders.update','orders.expand','orders.reopen','orders.archive','orders.soft_delete','orders.assign','orders.link_receipt',
     'production.read',
     'inventory.read','inventory.manual_stock','inventory.assign_stock',
     'catalog.create','catalog.update','catalog.set_active',
@@ -1161,7 +1161,7 @@ const ROLE_PERMISSIONS = {
     'loadplan.use','reports.export'
   ]),
   ops_multifunctional: new Set([
-    'orders.read','orders.create','orders.update','orders.expand','orders.reopen','orders.archive','orders.soft_delete','orders.assign',
+    'orders.read','orders.create','orders.update','orders.expand','orders.reopen','orders.archive','orders.soft_delete','orders.assign','orders.link_receipt',
     'production.read','production.move','production.adjust',
     'inventory.read','inventory.manual_stock','inventory.assign_stock',
     'catalog.create','catalog.update','catalog.set_active',
@@ -1170,7 +1170,7 @@ const ROLE_PERMISSIONS = {
     'loadplan.use','reports.export'
   ]),
   inspections_deliveries: new Set([
-    'orders.read','production.read','inventory.read',
+    'orders.read','orders.link_receipt','production.read','inventory.read',
     'quality.read','quality.inspect','quality.edit_inspection','quality.request_rework','quality.reinspect',
     'deliveries.read','deliveries.schedule','deliveries.confirm',
     'loadplan.use','reports.export'
@@ -1426,6 +1426,7 @@ function demoState(){
     lots: [],
     inspections: [],
     deliveries: [],
+    orderLinks: [],
     customProducts: [],
     history: []
   };
@@ -1465,6 +1466,7 @@ function load(){
       return clean;
     }
     if(!p.customProducts || !Array.isArray(p.customProducts)) p.customProducts = [];
+    if(!p.orderLinks || !Array.isArray(p.orderLinks)) p.orderLinks = [];
     normalizeLotsToOrderFormat(p);
     return p;
   }catch(e){
@@ -1496,6 +1498,7 @@ async function pullServerState(){
     if(res.ok){
       const data=await res.json();
       if(data&&typeof data==='object'){
+        if(!data.orderLinks || !Array.isArray(data.orderLinks)) data.orderLinks = [];
         const sVer=data.version||0;
         if(sVer>currentVersion||currentVersion===0){
           state=data;
@@ -1595,7 +1598,11 @@ function isOrderOperative(orderId){
   if(o.isArchived || o.status === 'Archivada') return false;
   return true;
 }
-function qtyDeliveredOrder(orderId){return state.deliveries.filter(d=>d.orderId===orderId&&d.status==='Entregada').reduce((s,d)=>s+d.qty,0)}
+function qtyDeliveredOrder(orderId){
+  const o=orderById(orderId);
+  if(!o) return 0;
+  return (o.lines||[]).reduce((s,l)=>s+qtyDeliveredLine(orderId,l.id),0);
+}
 function sampleSize(n){if(n<=15)return n;if(n<=25)return 5;if(n<=50)return 8;if(n<=90)return 13;if(n<=150)return 20;if(n<=280)return 32;if(n<=500)return 50;if(n<=1200)return 80;if(n<=3200)return 125;if(n<=10000)return 200;if(n<=35000)return 315;if(n<=150000)return 500;if(n<=500000)return 800;return 1250}
 function esc(s){return String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
 function modal(html,small=false){const bg=document.getElementById('modalBg');if(!bg)return;bg.innerHTML=`<div class="modal ${small?'sm':''}">${html}</div>`;bg.classList.add('show');bg.onclick=e=>{if(e.target===bg)closeModal()}}
@@ -1637,7 +1644,7 @@ function renderHome(){
   // 1. Executive Real-time KPIs
   const allOrders=(state.orders||[]).filter(o => !o.isDeleted && o.status !== 'Eliminada');
   const activeOrders=allOrders.filter(o=>!o.isArchived && o.status !== 'Archivada' && o.status!=='Cerrada'&&getOrderDetailedStatus(o).code!=='completada');
-  const totalPiecesDemand=activeOrders.reduce((sum,o)=>sum+(o.lines||[]).reduce((ls,l)=>ls+(+l.qty||0),0),0);
+  const totalPiecesDemand=activeOrders.reduce((sum,o)=>sum+qtyProductionDemandOrder(o.id),0);
   const totalPiecesDelivered=(state.deliveries||[]).filter(d=>d.status==='Entregada'&&isOrderActive(d.orderId)).reduce((s,d)=>s+d.qty,0);
 
   let wipCosme=0, wipDuma=0;
@@ -3364,32 +3371,134 @@ function isLotReallyReleased(l){
   return l.quality === 'Liberado';
 }
 
-function qtyDeliveredLine(orderId, lineId){
+function qtyPhysicalDeliveredLine(orderId,lineId){
   if(!orderId) return 0;
-  const targetOId = String(orderId).trim().toLowerCase();
-  const line = lineFor(orderId, lineId);
-  return (state.deliveries || []).filter(d => {
-    if(String(d.orderId).trim().toLowerCase() !== targetOId) return false;
-    if(d.status !== 'Entregada') return false;
-    if(d.lineId && lineId){
-      return String(d.lineId).trim().toLowerCase() === String(lineId).trim().toLowerCase();
-    }
-    const l = lotById(d.lotId);
-    if(l && l.lineId && lineId){
-      return String(l.lineId).trim().toLowerCase() === String(lineId).trim().toLowerCase();
-    }
-    if(line && l && l.productCode && line.productCode){
-      return String(l.productCode).trim().toLowerCase() === String(line.productCode).trim().toLowerCase();
-    }
-    if(line && d.productCode && line.productCode){
-      return String(d.productCode).trim().toLowerCase() === String(line.productCode).trim().toLowerCase();
-    }
-    const o = orderById(orderId);
-    if(o && (o.lines || []).length === 1 && o.lines[0].id === lineId){
-      return true;
-    }
-    return false;
-  }).reduce((s,d) => s + (+d.qty || 0), 0);
+  const targetOId=String(orderId).trim().toLowerCase();
+  const line=lineFor(orderId,lineId);
+  return (state.deliveries||[]).filter(d=>{
+    if(String(d.orderId).trim().toLowerCase()!==targetOId) return false;
+    if(d.status!=='Entregada') return false;
+    if(d.lineId&&lineId) return String(d.lineId).trim().toLowerCase()===String(lineId).trim().toLowerCase();
+    const l=lotById(d.lotId);
+    if(l&&l.lineId&&lineId) return String(l.lineId).trim().toLowerCase()===String(lineId).trim().toLowerCase();
+    if(line&&l&&l.productCode&&line.productCode) return String(l.productCode).trim().toLowerCase()===String(line.productCode).trim().toLowerCase();
+    if(line&&d.productCode&&line.productCode) return String(d.productCode).trim().toLowerCase()===String(line.productCode).trim().toLowerCase();
+    const o=orderById(orderId);
+    return !!(o&&(o.lines||[]).length===1&&o.lines[0].id===lineId);
+  }).reduce((s,d)=>s+(+d.qty||0),0);
+}
+
+function orderLinks(){
+  if(!state.orderLinks) state.orderLinks=[];
+  return state.orderLinks;
+}
+function qtyReclassifiedOutLine(orderId,lineId){
+  return orderLinks().filter(x=>x.sourceOrderId===orderId&&x.sourceLineId===lineId&&x.status!=='Anulado').reduce((s,x)=>s+(+x.qty||0),0);
+}
+function qtyReclassifiedInLine(orderId,lineId){
+  return orderLinks().filter(x=>x.targetOrderId===orderId&&x.targetLineId===lineId&&x.status!=='Anulado').reduce((s,x)=>s+(+x.qty||0),0);
+}
+function qtyDeliveredLine(orderId,lineId){
+  return Math.max(0,qtyPhysicalDeliveredLine(orderId,lineId)-qtyReclassifiedOutLine(orderId,lineId))+qtyReclassifiedInLine(orderId,lineId);
+}
+function qtyProductionDemandLine(orderId,lineId){
+  const l=lineFor(orderId,lineId);
+  return l?Math.max(0,(+l.qty||0)-qtyReclassifiedInLine(orderId,lineId)):0;
+}
+function qtyProductionDemandOrder(orderId){
+  const o=orderById(orderId);
+  return o?(o.lines||[]).reduce((s,l)=>s+qtyProductionDemandLine(orderId,l.id),0):0;
+}
+function linkedReceivingOrdersForSource(orderId){
+  return orderLinks().filter(x=>x.sourceOrderId===orderId&&x.status!=='Anulado');
+}
+function linkedSourceOrdersForTarget(orderId){
+  return orderLinks().filter(x=>x.targetOrderId===orderId&&x.status!=='Anulado');
+}
+function getDeliveredRemissionsForLine(orderId,lineId){
+  const target=String(orderId||'').trim().toLowerCase();
+  return (state.deliveries||[]).filter(d=>{
+    if(d.status!=='Entregada'||String(d.orderId||'').trim().toLowerCase()!==target) return false;
+    if(d.lineId&&lineId&&String(d.lineId).trim().toLowerCase()===String(lineId).trim().toLowerCase()) return true;
+    const lot=lotById(d.lotId);
+    return !!(lot&&lot.lineId&&String(lot.lineId).trim().toLowerCase()===String(lineId).trim().toLowerCase());
+  });
+}
+function qtyDeliveryAlreadyLinked(deliveryId){
+  return orderLinks().filter(x=>x.deliveryId===deliveryId&&x.status!=='Anulado').reduce((s,x)=>s+(+x.qty||0),0);
+}
+
+function openLinkReceivingOrder(sourceOrderId){
+  if(!requirePermission('orders.link_receipt','vincular una OC de recepción')) return;
+  const o=orderById(sourceOrderId);
+  if(!o) return alert('Orden de origen no encontrada.');
+  const eligible=(o.lines||[]).filter(l=>qtyPhysicalDeliveredLine(o.id,l.id)-qtyReclassifiedOutLine(o.id,l.id)>0);
+  if(!eligible.length) return alert('No hay piezas entregadas disponibles para reclasificar a otra OC.');
+  const first=eligible[0];
+  const rems=getDeliveredRemissionsForLine(o.id,first.id);
+  const available=Math.max(0,qtyPhysicalDeliveredLine(o.id,first.id)-qtyReclassifiedOutLine(o.id,first.id));
+  modal(`
+    <div class="modal-head">
+      <div>
+        <h3 style="margin:0">Vincular OC de recepción · ${esc(o.id)}</h3>
+        <small style="color:var(--muted)">Reclasificación solicitada por planta sin perder la OC de origen</small>
+      </div>
+      <button class="btn secondary" onclick="openOrder('${esc(o.id).replace(/'/g,"\\'")}')">Volver</button>
+    </div>
+    <div class="modal-body">
+      <div class="notice">La OC original conservará producción, lote e inspección. La nueva OC quedará ligada como <b>OC de recepción en planta</b> y no generará producción adicional por las piezas vinculadas.</div>
+      <div class="form-grid" style="margin-top:10px">
+        <div class="field"><label>Partida de origen</label><select id="link_source_line" onchange="updateReceivingOrderLinkOptions('${esc(o.id).replace(/'/g,"\\'")}')">${eligible.map(l=>{const p=product(l.productCode);const av=Math.max(0,qtyPhysicalDeliveredLine(o.id,l.id)-qtyReclassifiedOutLine(o.id,l.id));return `<option value="${esc(l.id)}">${esc(l.id)} · ${esc(p.code)} · ${esc(p.name)} · ${av} pzas disponibles</option>`;}).join('')}</select></div>
+        <div class="field"><label>Remisión / entrega relacionada</label><select id="link_delivery">${rems.map(d=>{const av=Math.max(0,(+d.qty||0)-qtyDeliveryAlreadyLinked(d.id));return `<option value="${esc(d.id)}">${esc(d.id)} · ${d.qty} pzas · disponibles ${av}</option>`;}).join('')}</select></div>
+        <div class="field"><label>Nueva OC de planta / recepción *</label><input type="text" id="link_target_order" placeholder="Ej. 450099" style="font-weight:700"></div>
+        <div class="field"><label>Cantidad a vincular *</label><input type="number" id="link_qty" min="1" max="${available}" value="${available}" style="font-weight:700"></div>
+        <div class="field"><label>Planta de recepción</label><select id="link_target_plant"><option ${o.plant==='Planta 1'?'selected':''}>Planta 1</option><option ${o.plant==='Planta 2'?'selected':''}>Planta 2</option><option ${o.plant==='Planta 3'?'selected':''}>Planta 3</option></select></div>
+        <div class="field"><label>Tipo de vínculo</label><select id="link_type"><option value="Reclasificación de OC en planta">Reclasificación de OC en planta</option><option value="Sustitución administrativa">Sustitución administrativa</option><option value="Continuación de OC">Continuación de OC</option></select></div>
+      </div>
+      <div class="field" style="margin-top:10px"><label>Motivo / observación</label><textarea id="link_reason">Cambio de OC solicitado por planta al momento de recepción.</textarea></div>
+      <div id="link_oc_error" style="display:none;margin-top:10px;padding:8px 12px;border-radius:8px;background:#fef2f2;border:1px solid #fecaca;color:#991b1b;font-size:12px;font-weight:600"></div>
+    </div>
+    <div class="modal-foot"><button class="btn secondary" onclick="openOrder('${esc(o.id).replace(/'/g,"\\'")}')">Cancelar</button><button class="btn primary" onclick="saveReceivingOrderLink('${esc(o.id).replace(/'/g,"\\'")}')">Crear y vincular OC</button></div>
+  `,true);
+}
+function updateReceivingOrderLinkOptions(sourceOrderId){
+  const lineId=val('link_source_line'),remSel=document.getElementById('link_delivery'),qtyInp=document.getElementById('link_qty');
+  const available=Math.max(0,qtyPhysicalDeliveredLine(sourceOrderId,lineId)-qtyReclassifiedOutLine(sourceOrderId,lineId));
+  const rems=getDeliveredRemissionsForLine(sourceOrderId,lineId);
+  if(remSel) remSel.innerHTML=rems.map(d=>{const av=Math.max(0,(+d.qty||0)-qtyDeliveryAlreadyLinked(d.id));return `<option value="${esc(d.id)}">${esc(d.id)} · ${d.qty} pzas · disponibles ${av}</option>`;}).join('');
+  if(qtyInp){qtyInp.max=available;qtyInp.value=available;}
+}
+function saveReceivingOrderLink(sourceOrderId){
+  if(!requirePermission('orders.link_receipt','vincular una OC de recepción')) return;
+  const sourceOrder=orderById(sourceOrderId);
+  if(!sourceOrder) return alert('Orden de origen no encontrada.');
+  const sourceLineId=val('link_source_line'),sourceLine=lineFor(sourceOrderId,sourceLineId),targetOrderId=(val('link_target_order')||'').trim(),targetPlant=val('link_target_plant')||sourceOrder.plant||'Planta 1',deliveryId=val('link_delivery')||'',type=val('link_type')||'Reclasificación de OC en planta',reason=(val('link_reason')||'').trim()||'Cambio de OC solicitado por planta.',qty=+val('link_qty')||0;
+  const err=document.getElementById('link_oc_error'),fail=msg=>{if(err){err.textContent=msg;err.style.display='block';}else alert(msg);};
+  if(err) err.style.display='none';
+  if(!sourceLine) return fail('Selecciona una partida de origen válida.');
+  if(!targetOrderId) return fail('Ingresa el número de la nueva OC de planta.');
+  if(targetOrderId.toLowerCase()===sourceOrderId.toLowerCase()) return fail('La OC de recepción debe ser distinta de la OC de origen.');
+  const lineAvailable=Math.max(0,qtyPhysicalDeliveredLine(sourceOrderId,sourceLineId)-qtyReclassifiedOutLine(sourceOrderId,sourceLineId));
+  if(qty<=0||qty>lineAvailable) return fail(`La cantidad debe estar entre 1 y ${lineAvailable} piezas entregadas disponibles.`);
+  if(deliveryId){const d=(state.deliveries||[]).find(x=>x.id===deliveryId);if(!d)return fail('La remisión seleccionada no existe.');const av=Math.max(0,(+d.qty||0)-qtyDeliveryAlreadyLinked(deliveryId));if(qty>av)return fail(`La remisión ${deliveryId} sólo tiene ${av} piezas disponibles para vincular.`);}
+  let targetOrder=orderById(targetOrderId),targetLine=null;
+  const p=product(sourceLine.productCode),user=getActiveUserName();
+  if(targetOrder){
+    targetLine=(targetOrder.lines||[]).find(l=>l.productCode===sourceLine.productCode&&Math.max(0,(+l.qty||0)-qtyReclassifiedInLine(targetOrder.id,l.id))>=qty);
+    if(!targetLine){const nextId='P'+String((targetOrder.lines||[]).length+1);targetLine={id:nextId,productCode:sourceLine.productCode,qty,due:sourceLine.due||'',priority:sourceLine.priority||'Alta',linkedOnly:true};if(!targetOrder.lines)targetOrder.lines=[];targetOrder.lines.push(targetLine);}
+  }else{
+    state.orderSeq=(state.orderSeq||state.orders.length)+1;
+    targetLine={id:'P1',productCode:sourceLine.productCode,qty,due:sourceLine.due||'',priority:sourceLine.priority||'Alta',linkedOnly:true};
+    targetOrder={folio:'FOL-'+String(state.orderSeq).padStart(4,'0'),id:targetOrderId,plant:targetPlant,status:'Activa',created:nowStr(),linkedOrder:true,history:[h('Creación de OC vinculada',`OC creada por ${type.toLowerCase()} desde OC ${sourceOrderId} / ${sourceLineId}. No genera demanda adicional por la cantidad vinculada.`,user)],lines:[targetLine]};
+    state.orders.unshift(targetOrder);
+  }
+  const linkId='VINC-'+String(orderLinks().length+1).padStart(3,'0');
+  orderLinks().unshift({id:linkId,sourceOrderId,sourceLineId,targetOrderId:targetOrder.id,targetLineId:targetLine.id,productCode:sourceLine.productCode,qty,deliveryId:deliveryId||null,type,reason,status:'Activo',createdAt:nowStr(),createdBy:user});
+  if(!sourceOrder.history)sourceOrder.history=[];sourceOrder.history.unshift(h('Reclasificación de OC',`${qty} pzas de ${sourceLineId} (${p.code}) vinculadas a OC ${targetOrder.id} / ${targetLine.id}. ${deliveryId?'Remisión '+deliveryId+'. ':''}Motivo: ${reason}`,user));
+  if(!targetOrder.history)targetOrder.history=[];targetOrder.history.unshift(h('Vínculo con OC de origen',`${qty} pzas recibidas desde OC ${sourceOrder.id} / ${sourceLineId}. Vínculo ${linkId}. ${deliveryId?'Remisión '+deliveryId+'. ':''}${reason}`,user));
+  const sourceTotal=(sourceOrder.lines||[]).reduce((s,l)=>s+(+l.qty||0),0);if(qtyDeliveredOrder(sourceOrder.id)<sourceTotal&&sourceOrder.status==='Cerrada')sourceOrder.status='Activa';
+  const targetTotal=(targetOrder.lines||[]).reduce((s,l)=>s+(+l.qty||0),0);if(targetTotal>0&&qtyDeliveredOrder(targetOrder.id)>=targetTotal)targetOrder.status='Cerrada';
+  save();render();closeModal();openOrder(targetOrder.id);showKanbanToast(`✓ ${qty} piezas vinculadas: OC ${sourceOrder.id} → OC ${targetOrder.id}`);
 }
 
 function openManualStockModal(defaultProductCode = ''){
@@ -6051,9 +6160,12 @@ function openOrder(id){
   const safeId = esc(o.id).replace(/'/g, "\\'");
   const delivered = qtyDeliveredOrder(o.id);
   const totalQty = (o.lines || []).reduce((s,l)=>s+(+l.qty||0), 0);
+  const productionDemand = qtyProductionDemandOrder(o.id);
   const as = (state.allocations || []).filter(a => a.orderId === o.id);
   const totalAlloc = as.reduce((s,a)=>s+(+a.qty||0), 0);
-  const unallocated = Math.max(0, totalQty - totalAlloc);
+  const unallocated = Math.max(0, productionDemand - totalAlloc);
+  const outboundLinks=linkedReceivingOrdersForSource(o.id);
+  const inboundLinks=linkedSourceOrdersForTarget(o.id);
   const st = getOrderDetailedStatus(o);
 
   modal(`
@@ -6085,8 +6197,9 @@ function openOrder(id){
         <div class="detail"><small>Volumen Total</small><b>${totalQty} piezas</b></div>
         <div class="detail"><small>Entregado a Planta</small><b style="color:var(--green)">${delivered} / ${totalQty} pzas</b></div>
         <div class="detail"><small>Estatus Operativo</small><b><span class="pill ${st.pillClass}" style="${st.style}">${st.label}</span></b></div>
-        <div class="detail"><small>Balance Asignación</small><b style="color:${unallocated>0?'var(--amber)':'var(--green)'}">${unallocated > 0 ? `${unallocated} pzas pendientes` : '✓ 100% Asignada'}</b></div>
+        <div class="detail"><small>Balance Asignación</small><b style="color:${unallocated>0?'var(--amber)':'var(--green)'}">${unallocated > 0 ? `${unallocated} pzas pendientes` : '✓ Demanda cubierta'}</b></div>
       </div>
+      ${(outboundLinks.length||inboundLinks.length)?`<div style="margin-top:12px;background:var(--soft);border:1px solid var(--line);border-radius:10px;padding:10px 12px"><div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><b style="color:var(--navy)">OCs vinculadas</b><span style="font-size:11px;color:var(--muted)">Trazabilidad comercial sin duplicar producción</span></div><div style="display:grid;gap:6px;margin-top:7px">${outboundLinks.map(x=>`<div style="font-size:12px"><span class="pill amber" style="font-size:10px">OC de recepción</span> <b>${esc(x.targetOrderId)}</b> · ${x.qty} pzas · ${esc(x.type)}${x.deliveryId?` · Remisión <b>${esc(x.deliveryId)}</b>`:''}</div>`).join('')}${inboundLinks.map(x=>`<div style="font-size:12px"><span class="pill blue" style="font-size:10px">OC de origen</span> <b>${esc(x.sourceOrderId)}</b> · ${x.qty} pzas · ${esc(x.type)}${x.deliveryId?` · Remisión <b>${esc(x.deliveryId)}</b>`:''}</div>`).join('')}</div></div>`:''}
 
       <div style="margin-top:14px">
         <h4 style="margin:0 0 8px;color:var(--navy)">Partidas Comprometidas (${(o.lines||[]).length})</h4>
@@ -6095,11 +6208,15 @@ function openOrder(id){
             const p = product(l.productCode);
             const diff = daysRemaining(l.due);
             const isLate = diff !== null && diff <= 0;
+            const linkedOut=qtyReclassifiedOutLine(o.id,l.id);
+            const linkedIn=qtyReclassifiedInLine(o.id,l.id);
             return `
               <div style="background:var(--soft);border:1px solid var(--line);border-radius:10px;padding:10px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
                 <div>
                   <b style="color:var(--navy)">Partida ${idx+1} (${l.id}): ${p.name}</b> (${p.code})<br>
                   <small style="color:var(--muted)">Medidas: ${p.length}×${p.width}×${p.height} cm · Prioridad: <b>${l.priority||'Alta'}</b> · ${p.ht?'Tratamiento HT Certificado':'Estándar'}</small>
+                  ${linkedOut>0?`<div style="margin-top:4px"><span class="pill amber" style="font-size:10px">${linkedOut} pzas reclasificadas a otra OC</span></div>`:''}
+                  ${linkedIn>0?`<div style="margin-top:4px"><span class="pill blue" style="font-size:10px">${linkedIn} pzas cubiertas desde OC de origen</span></div>`:''}
                 </div>
                 <div style="text-align:right">
                   <b style="font-size:14px;color:var(--navy)">${l.qty} pzas</b><br>
@@ -6152,6 +6269,7 @@ function openOrder(id){
       <button class="btn small" style="background:#fef3c7;color:#92400e;border:1px solid #fcd34d;font-weight:800;display:inline-flex;align-items:center;gap:4px" onclick="exportOrderPdf('${safeId}')" title="Exportar expediente oficial de la OC a PDF">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg> Exportar PDF
       </button>
+      ${(o.lines||[]).some(l=>qtyPhysicalDeliveredLine(o.id,l.id)-qtyReclassifiedOutLine(o.id,l.id)>0)?`<button class="btn small soft" style="color:#7c3aed;border-color:#c4b5fd" onclick="openLinkReceivingOrder('${safeId}')">Vincular OC de recepción</button>`:''}
       <button class="btn small soft" onclick="editOrderNumber('${safeId}')">Editar No. OC</button>
       <button class="btn small soft" onclick="expandOrder('${safeId}')">Ampliar OC</button>
       ${unallocated > 0 && !o.isDeleted && !o.isArchived ? `<button class="btn small primary" style="background:#286f3b" onclick="assignOrder('${safeId}')">Asignar a Aserradero</button>` : ''}
@@ -7375,7 +7493,7 @@ function confirmDelivery(id){
   }
   if(o){
     const totalOrderQty = (o.lines || []).reduce((s, li) => s + (+li.qty || 0), 0);
-    const deliveredOrderTotal = (state.deliveries || []).filter(del => del.orderId === o.id && del.status === 'Entregada').reduce((s, del) => s + (+del.qty || 0), 0);
+    const deliveredOrderTotal = qtyDeliveredOrder(o.id);
     if(deliveredOrderTotal >= totalOrderQty && totalOrderQty > 0){
       o.status = 'Cerrada';
       if(!o.history) o.history = [];
@@ -7396,6 +7514,7 @@ function openDelivery(id){
   const l=lotById(d.lotId);
   const o=orderById(d.orderId);
   const p=product(l?.productCode || '199071');
+  const deliveryLinks=orderLinks().filter(x=>x.deliveryId===d.id&&x.status!=='Anulado');
   const isDelivered = d.status === 'Entregada';
 
   modal(`
@@ -7419,7 +7538,7 @@ function openDelivery(id){
 
       <div class="detail-grid">
         <div class="detail"><small>Folio Remisión</small><b>${esc(d.id)}</b></div>
-        <div class="detail"><small>Orden de Compra</small><b>${esc(d.orderId)}</b></div>
+        <div class="detail"><small>OC de Origen</small><b>${esc(d.orderId)}</b></div>
         <div class="detail"><small>Lote Liberado</small><b>${esc(d.lotId)}</b></div>
         <div class="detail"><small>Planta de Destino</small><b>${esc(d.plant)}</b></div>
         <div class="detail"><small>Cantidad de Tarimas</small><b style="color:var(--navy);font-size:15px">${d.qty} pzas</b></div>
@@ -7428,9 +7547,8 @@ function openDelivery(id){
         <div class="detail"><small>Liberación Calidad</small><b style="color:var(--green)">✓ ${esc(l?.quality || 'Liberado')}</b></div>
       </div>
 
-      <div class="notice" style="margin-top:14px">
-        <b>Control de Calidad en Entrega:</b> Este embarque cuenta con inspección técnica aprobada y certificado fitosanitario correspondiente para despacho a planta.
-      </div>
+      ${deliveryLinks.length?`<div class="notice" style="margin-top:14px;background:#f5f3ff;border-color:#ddd6fe;color:#5b21b6"><b>OC de recepción vinculada:</b> ${deliveryLinks.map(x=>`OC <b>${esc(x.targetOrderId)}</b> · ${x.qty} pzas · ${esc(x.type)}`).join(' · ')}</div>`:''}
+      <div class="notice" style="margin-top:14px"><b>Control de Calidad en Entrega:</b> El embarque conserva el lote y la inspección de la OC de origen aunque planta solicite una reclasificación administrativa de OC.</div>
     </div>
     <div class="modal-foot">
       <div style="display:flex;gap:8px;flex-wrap:wrap">
