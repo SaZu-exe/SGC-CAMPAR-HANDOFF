@@ -178,7 +178,7 @@ Estos códigos servirán para frontend y RLS/backend.
 Sandra conserva supervisión global, administración y acciones administrativas sobre OCs, catálogo e inventario, sin convertirse en autoridad técnica de liberación.
 
 ### IT & Soporte Multifuncional
-Ian tiene acceso técnico/administrativo total al sistema para soporte, configuración y asistencia operativa. La única excepción deliberada es la liberación formal de calidad, reservada a Emanuelle y Aless.
+Ian tiene acceso total al sistema durante la fase de pruebas para soporte, configuración, validación y asistencia operativa. Esto incluye temporalmente la liberación formal de calidad.
 
 ### Supervisión Operativa & Calidad
 Rol compartido por Emanuelle (Gustavo) y Aless (Alessandri). Incluye asignaciones, producción, actualización de stock, inspección, retrabajo, reinspección, cierre de NC y liberación formal de lote.
@@ -245,7 +245,7 @@ Registrar las acciones críticas en `audit_events`.
 4. **Esme** queda como **Coordinación Operativa Multifuncional**.
 5. **Cris** queda como **Inspecciones & Entregas**.
 6. **Miguel** permanece fuera del sistema como chofer, sin usuario.
-7. **Ian** queda como **IT & Soporte Multifuncional**, con acceso total técnico/administrativo salvo la liberación formal de calidad.
+7. **Ian** queda como **IT & Soporte Multifuncional**, con acceso total al sistema durante la fase de pruebas, incluida la liberación formal de calidad.
 
 ---
 
@@ -275,7 +275,7 @@ La capa de permisos ya fue incorporada en el frontend actual mediante:
 - `requirePermission(permission)`;
 - validaciones sobre las principales acciones mutables.
 
-La liberación ya no permite seleccionar manualmente la autoridad: se deriva del perfil activo. Sólo Emanuelle y Aless pueden ejecutar `quality.release`.
+La liberación ya no permite seleccionar manualmente la autoridad: se deriva del perfil activo. Emanuelle y Aless son las autoridades operativas normales; durante pruebas, Ian también puede ejecutar `quality.release` por su acceso total.
 
 **Importante:** esta capa mejora el prototipo, pero todavía no constituye seguridad real. Los mismos permisos deberán implementarse nuevamente en Supabase Auth/RLS/RPC para que no puedan eludirse desde el navegador.
 
@@ -295,3 +295,22 @@ Flujo operativo:
 - La función `orders.link_receipt` está autorizada únicamente para Ian y Esme.
 
 Esto evita que el personal de entrega modifique directamente la estructura comercial de una OC mientras mantiene la trazabilidad de lo reportado en planta.
+
+
+---
+
+## 13. Excepción temporal de pruebas — Ian
+
+Durante la fase de desarrollo y validación, el perfil **Ian — IT & Soporte Multifuncional** tiene acceso total mediante el permiso comodín `*`.
+
+Esto incluye temporalmente:
+
+- creación, edición, archivo y eliminación lógica de OCs;
+- producción y KanBan;
+- inventario y catálogo;
+- inspecciones, NC, retrabajos y reinspecciones;
+- liberación de lotes;
+- entregas;
+- configuración y administración.
+
+Esta autorización es **temporal para fines de testing**. Antes de la puesta en producción deberá revisarse si se conserva o se restringe respecto de las autoridades formales de liberación.
